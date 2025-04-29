@@ -1,5 +1,5 @@
 sqlalchemy
-fastapi
+fastapi[all]
 python-dotenv
 botocore
 boto3
@@ -18,4 +18,5 @@ opencv-python
 pdf2image
 PyMuPDF
 
+transformers
 pypdf2
