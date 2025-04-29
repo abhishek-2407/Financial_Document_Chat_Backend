@@ -10,7 +10,13 @@ db_url = os.getenv("DB_URI")
 class ConnectDB:
     def __init__(self, autocommit: bool = True):
         try:
-            self.conn = psycopg2.connect(db_url)
+            self.conn = psycopg2.connect(
+                user=os.getenv('DB_USERNAME'),
+                password=os.getenv('DB_PASSWORD'),
+                host=os.getenv('DB_HOST'),
+                database=os.getenv('DB_DATABASE'),
+                port=os.getenv('DB_PORT')
+            )
             self.conn.autocommit = autocommit
             self.cursor = self.conn.cursor()
             logging.info('Database connection established')
