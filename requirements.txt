@@ -17,5 +17,5 @@ qdrant_client
 opencv-python
 pdf2image
 PyMuPDF
-torch
+
 pypdf2
