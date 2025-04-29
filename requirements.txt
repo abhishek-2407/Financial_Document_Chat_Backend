@@ -17,6 +17,7 @@ qdrant_client
 opencv-python
 pdf2image
 PyMuPDF
+opencv-python
 
 transformers
 pypdf2

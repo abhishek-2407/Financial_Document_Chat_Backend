@@ -64,3 +64,8 @@ app.include_router(
 @app.get("/health-check/", status_code=status.HTTP_200_OK)
 async def health_check(request: Request):
     return JSONResponse(content={"status": "Healthy"})
+
+
+if __name__ == '__main__':
+   
+    uvicorn.run("main:app", host="0.0.0.0", reload=False)
