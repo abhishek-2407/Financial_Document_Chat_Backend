@@ -198,12 +198,12 @@ def get_advance_chunk(base64_str: str, file_name: str, thread_id: str, file_id: 
     logging.info(f"\nTime taken to split pdf to image: {time.time() - start_time}\n")
 
     # Extract text directly from PDF
-    try :
-        extracted_texts = extract_text_from_base64(base64_str=base64_str, file_type=file_type, extension=extension)
-        logging.info(f"Successfully extracted text from {len(extracted_texts)} pages")
+    # try :
+    #     extracted_texts = extract_text_from_base64(base64_str=base64_str, file_type=file_type, extension=extension)
+    #     logging.info(f"Successfully extracted text from {len(extracted_texts)} pages")
         
-    except :
-        logging.info("Error extracting text from document")
+    # except :
+    #     logging.info("Error extracting text from document")
 
     images = chunks_base64_list
 
@@ -292,39 +292,42 @@ Focus on precision and completeness in extraction. """
     
     try:
         text_chunks = []
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=100,
-            length_function=len,
-            separators=["\n\n", "\n", ". ", " ", ""]
-        )
+        # text_splitter = RecursiveCharacterTextSplitter(
+        #     chunk_size=1000,
+        #     chunk_overlap=100,
+        #     length_function=len,
+        #     separators=["\n\n", "\n", ". ", " ", ""]
+        # )
         
-        for i, full_text in enumerate(extracted_texts):
-            if not full_text:
-                continue
+        # for i, full_text in enumerate(extracted_texts):
+        #     if not full_text:
+        #         continue
             
-            chunks = text_splitter.split_text(full_text)
+        #     chunks = text_splitter.split_text(full_text)
             
-            # Create a document for each chunk
-            for j, chunk in enumerate(chunks):
-                if not chunk.strip():
-                    continue
+        #     # Create a document for each chunk
+        #     for j, chunk in enumerate(chunks):
+        #         if not chunk.strip():
+        #             continue
                     
-                text_chunk_id = str(uuid.uuid4())
-                text_chunks.append(
-                    Document(page_content=chunk.strip().replace("\n", ""),
-                            metadata={
-                                "doc_id": text_chunk_id,
-                                "thread_id": thread_id,
-                                "file_id": file_id,
-                                "file_name": file_name,
-                                "page_number": i + 1,
-                                "chunk_number": j + 1,
-                                "type": "text"
-                            })
-                )
+        #         text_chunk_id = str(uuid.uuid4())
+        #         text_chunks.append(
+        #             Document(page_content=chunk.strip().replace("\n", ""),
+        #                     metadata={
+        #                         "doc_id": text_chunk_id,
+        #                         "thread_id": thread_id,
+        #                         "file_id": file_id,
+        #                         "file_name": file_name,
+        #                         "page_number": i + 1,
+        #                         "chunk_number": j + 1,
+        #                         "type": "text"
+        #                     })
+        #         )
                 
-        overall_summary = summary_img + text_chunks
+        # overall_summary = summary_img + text_chunks
+                
+        overall_summary = summary_img
+                
                 
     except Exception as e:
         logging.info("Skipping text extraction")

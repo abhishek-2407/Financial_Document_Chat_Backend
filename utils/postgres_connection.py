@@ -6,7 +6,6 @@ import psycopg2
 from dotenv import load_dotenv
 load_dotenv()
 
-db_url = os.getenv("DB_URI")
 class ConnectDB:
     def __init__(self, autocommit: bool = True):
         try:
