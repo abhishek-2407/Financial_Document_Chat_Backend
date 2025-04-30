@@ -86,10 +86,10 @@ async def retrieve_chunks(user_query: str, thread_id : str ,file_id_list : List[
                         key="metadata.thread_id",
                         match=qdrant_client.models.MatchValue(value=thread_id),
                     ),
-                    qdrant_client.models.FieldCondition(
-                        key="metadata.type",
-                        match=qdrant_client.models.MatchValue(value="image"),
-                    ),
+                    # qdrant_client.models.FieldCondition(
+                    #     key="metadata.type",
+                    #     match=qdrant_client.models.MatchValue(value="image"),
+                    # ),
                        
                 ]
         
@@ -113,6 +113,7 @@ async def retrieve_chunks(user_query: str, thread_id : str ,file_id_list : List[
             "message": "success",
             "chunks": results,
         }
+        logging.info(f"Chunks response : {response}")
         return response
         
     

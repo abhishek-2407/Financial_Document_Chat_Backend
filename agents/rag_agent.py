@@ -31,8 +31,14 @@ model = AzureChatOpenAI(model="gpt-4o",
                             api_version=os.getenv("AZURE_OPENAI_VERSION"),
                             max_tokens=4000)
 
+def filter_messages(messages: list):
+    # This is very simple helper function which uses around 5 last queries as context window
+    return messages[-15:]
+
 def _modify_state_messages(state: AgentState):
-    return main_prompt.invoke({"messages": state["messages"]}).to_messages()
+    messages = filter_messages(state["messages"])
+
+    return main_prompt.invoke({"messages": messages}).to_messages()
 
 tools = [fetch_relevant_response]
 
