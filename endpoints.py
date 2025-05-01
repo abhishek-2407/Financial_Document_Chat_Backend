@@ -21,6 +21,9 @@ from dotenv import load_dotenv
 from utils.postgres_connection import ConnectDB
 from knowledge_base.update_vdb_s3 import delete_file_and_update_db
 
+from functions.testing_multiagents import agentic_flow
+
+
 load_dotenv()
 
 router = APIRouter()
@@ -72,21 +75,34 @@ cluster_id = os.getenv("QDRANT_COLLECTION")
 @router.post("/chat")
 async def get_chat_response(chat_response : ChatResponse):
     
-    if chat_response.stream:
-        return StreamingResponse(
-            doc_agents_chat_stream(
-                query=str(chat_response.query),
-                user_id=str(chat_response.user_id),
-                file_id_list= chat_response.file_id_list,
-                thread_id=str(chat_response.ticket_id), 
-                query_id=str(chat_response.query_id)),
-            media_type="text/event-stream"
-            )
-    else :
-        response = await doc_agents_chat(query=chat_response.query, user_id= chat_response.user_id, thread_id= chat_response.ticket_id, query_id=chat_response.query_id, file_id_list = chat_response.file_id_list)
-        logging.info(response)
+    # if chat_response.stream:
+    #     return StreamingResponse(
+    #         doc_agents_chat_stream(
+    #             query=str(chat_response.query),
+    #             user_id=str(chat_response.user_id),
+    #             file_id_list= chat_response.file_id_list,
+    #             thread_id=str(chat_response.ticket_id), 
+    #             query_id=str(chat_response.query_id)),
+    #         media_type="text/event-stream"
+    #         )
+    # else :
+    #     response = await doc_agents_chat(query=chat_response.query, user_id= chat_response.user_id, thread_id= chat_response.ticket_id, query_id=chat_response.query_id, file_id_list = chat_response.file_id_list)
+    #     logging.info(response)
     
-        return response
+    #     return response
+    
+    initial_state = {
+    "query": chat_response.query,
+    "context": {"file_id_list": chat_response.file_id_list },  
+    "retrieval_results": [],
+    "agent_outcomes": {},
+    "current_agent": "router",
+    "final_response": ""
+    }   
+    
+    result = agentic_flow.invoke(initial_state)
+    return result
+
 
 @router.post("/get-presigned-urls")
 async def get_presigned_urls(multi_file_request: MultiFileRequest):
