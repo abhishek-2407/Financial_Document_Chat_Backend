@@ -182,7 +182,7 @@ def router_agent(state: AgentState) -> AgentState:
     
     # Extract agent name from response
     content = response.content.lower().strip()
-    logging.info("Router response:", content)
+    logging.info(f"Router response: {content}")
     if "revenue_analyst" in content:
         selected_agent = "revenue_analyst"
     elif "expense_analyst" in content:

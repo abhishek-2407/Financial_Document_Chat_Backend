@@ -90,10 +90,12 @@ async def get_chat_response(chat_response : ChatResponse):
     #     logging.info(response)
     
     #     return response
+    query = chat_response.query
+    file_id_list = chat_response.file_id_list
     
     initial_state = {
-    "query": chat_response.query,
-    "context": {"file_id_list": chat_response.file_id_list },  
+    "query": query,
+    "context": {"file_id_list": file_id_list },  
     "retrieval_results": [],
     "agent_outcomes": {},
     "current_agent": "router",
