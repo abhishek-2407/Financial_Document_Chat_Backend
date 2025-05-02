@@ -141,24 +141,24 @@ def router_agent(state: AgentState) -> AgentState:
     """Determines which specialized agent should process the query."""
     
     # First, check if the query is finance-related
-    finance_check_prompt = f"""
-    You are a financial query validator. Determine if the following query is related to finance, financial analysis, 
-    financial documents, or business performance.
+    # finance_check_prompt = f"""
+    # You are a financial query validator. Determine if the following query is related to finance, financial analysis, 
+    # financial documents, or business performance.
     
-    Query: {state['query']}
+    # Query: {state['query']}
     
-    Respond with ONLY "yes" if the query is related to finance or "no" if it's not related to finance.
-    """
+    # Respond with ONLY "yes" if the query is related to finance or "no" if it's not related to finance.
+    # """
     
-    finance_check_response = router_llm.invoke([HumanMessage(content=finance_check_prompt)])
-    is_finance_related = finance_check_response.content.lower().strip()
+    # finance_check_response = router_llm.invoke([HumanMessage(content=finance_check_prompt)])
+    # is_finance_related = finance_check_response.content.lower().strip()
     
-    if "no" in is_finance_related:
-        # Query is not finance-related, provide a direct response
-        state["agent_outcomes"] = {}
-        state["final_response"] = "Please provide a valid financial query."
-        state["current_agent"] = "end"
-        return state
+    # if "no" in is_finance_related:
+    #     # Query is not finance-related, provide a direct response
+    #     state["agent_outcomes"] = {}
+    #     state["final_response"] = "Please provide a valid financial query."
+    #     state["current_agent"] = "end"
+    #     return state
     
     # If query is finance-related, proceed with router logic
     router_prompt = f"""
