@@ -13,7 +13,14 @@ from fastapi import Body, HTTPException
 from fastapi import APIRouter , HTTPException, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import List, Dict,Optional, Literal
-from agents.rag_agent import doc_agents_chat,doc_agents_chat_stream
+
+# from agents.rag_agent import doc_agents_chat,doc_agents_chat_stream
+from agents.expense_agent import expense_agents_stream
+from agents.revenue_agent import revenue_agents_stream
+from agents.comparative_agent import comparative_agents_stream
+from agents.summary_agent import summary_agents_stream
+from agents.general_agent import general_agents_stream
+
 from utils.s3_function import get_presigned_urls_from_s3,get_files_from_s3_in_base64_for_file,get_files_from_s3_in_base64
 from knowledge_base.agentic_chunking import get_advance_chunk
 from knowledge_base.rag_functions import create_rag
@@ -22,6 +29,8 @@ from utils.postgres_connection import ConnectDB
 from knowledge_base.update_vdb_s3 import delete_file_and_update_db
 
 from functions.testing_multiagents import agentic_flow
+from functions.router_llm_call import get_router_response
+
 
 
 load_dotenv()
@@ -72,8 +81,87 @@ class PDFRequest(BaseModel):
 cluster_id = os.getenv("QDRANT_COLLECTION")
 
 
+async def combined_stream(agent_streams):
+    for idx, stream_func in enumerate(agent_streams):
+        # Add a horizontal rule between agents (but not before the first one)
+        if idx > 0:
+            yield "\n\n---\n\n"
+
+        async for chunk in stream_func:
+            yield chunk
+
 @router.post("/chat")
-async def get_chat_response(chat_response : ChatResponse):
+async def get_chat_response(chat_response: ChatResponse):
+    selected_agent_list = get_router_response(user_query=chat_response.query)  
+    # Example: [{"agent": "revenue_analyst", "prompt": "Provide detailed revenue analysis"}, ...]
+
+    logging.info(f"Selected Agents : {selected_agent_list}")
+    agent_streams = []
+    selected_agent_list = json.loads(selected_agent_list)
+
+    for agent_info in list(selected_agent_list):
+        logging.info(f"Agent Name: {agent_info}")
+        agent_name = agent_info["agent"]
+        agent_prompt = agent_info["prompt"]
+
+        if not agent_name or not agent_prompt:
+            logging.warning(f"Invalid agent info: {agent_info}")
+            continue
+
+        logging.info(f"Triggered {agent_name} with prompt: {agent_prompt}")
+
+        if agent_name == "revenue_analyst":
+            agent_streams.append(revenue_agents_stream(
+                query=agent_prompt,
+                user_id=chat_response.user_id,
+                thread_id=chat_response.ticket_id,
+                query_id=chat_response.query_id,
+                file_id_list=chat_response.file_id_list
+            ))
+
+        elif agent_name == "expense_analyst":
+            agent_streams.append(expense_agents_stream(
+                query=agent_prompt,
+                user_id=chat_response.user_id,
+                thread_id=chat_response.ticket_id,
+                query_id=chat_response.query_id,
+                file_id_list=chat_response.file_id_list
+            ))
+
+        elif agent_name == "comparative_analysis":
+            agent_streams.append(comparative_agents_stream(
+                query=agent_prompt,
+                user_id=chat_response.user_id,
+                thread_id=chat_response.ticket_id,
+                query_id=chat_response.query_id,
+                file_id_list=chat_response.file_id_list
+            ))
+
+        elif agent_name == "summary_agent":
+            agent_streams.append(summary_agents_stream(
+                query=agent_prompt,
+                user_id=chat_response.user_id,
+                thread_id=chat_response.ticket_id,
+                query_id=chat_response.query_id,
+                file_id_list=chat_response.file_id_list
+            ))
+
+        elif agent_name == "general_agent":
+            agent_streams.append(general_agents_stream(
+                query=agent_prompt,
+                user_id=chat_response.user_id,
+                thread_id=chat_response.ticket_id,
+                query_id=chat_response.query_id,
+                file_id_list=chat_response.file_id_list
+            ))
+
+    if not agent_streams:
+        return {"error": "No valid agents found"}
+
+    return StreamingResponse(combined_stream(agent_streams), media_type="text/event-stream")
+
+    
+    # router_llm_call = ""
     
     # if chat_response.stream:
     #     return StreamingResponse(
@@ -90,20 +178,20 @@ async def get_chat_response(chat_response : ChatResponse):
     #     logging.info(response)
     
     #     return response
-    query = chat_response.query
-    file_id_list = chat_response.file_id_list
+    # query = chat_response.query
+    # file_id_list = chat_response.file_id_list
     
-    initial_state = {
-    "query": query,
-    "context": {"file_id_list": file_id_list },  
-    "retrieval_results": [],
-    "agent_outcomes": {},
-    "current_agent": "router",
-    "final_response": ""
-    }   
+    # initial_state = {
+    # "query": query,
+    # "context": {"file_id_list": file_id_list },  
+    # "retrieval_results": [],
+    # "agent_outcomes": {},
+    # "current_agent": "router",
+    # "final_response": ""
+    # }   
     
-    result = agentic_flow.invoke(initial_state)
-    return result
+    # result = agentic_flow.invoke(initial_state)
+    # return result
 
 
 @router.post("/get-presigned-urls")

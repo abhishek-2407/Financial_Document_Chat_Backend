@@ -517,7 +517,7 @@ def comparative_analysis_agent(state: AgentState) -> AgentState:
         - Visual indicators (like "↑" or "↓") to show trends
         3. After each table, provide brief insights about the most significant findings
 
-        Example table format:
+        Just an Example for referance as table format:
         | Metric | Company A | Company B | Industry Avg | Best Performer | Reasoning for Performance Difference |
         |--------|-----------|-----------|--------------|----------------|-------------------------------------|
         | Revenue Growth | 12.5% | 8.3% | 9.1% | Company A | Company A's new product line increased market share by 3.2 points |
