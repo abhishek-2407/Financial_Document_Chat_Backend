@@ -96,6 +96,7 @@ async def get_chat_response(chat_response: ChatResponse):
     # Example: [{"agent": "revenue_analyst", "prompt": "Provide detailed revenue analysis"}, ...]
 
     logging.info(f"Selected Agents : {selected_agent_list}")
+    # logging.info(f"Query : {chat_response.query}, User ID: {chat_response.user_id}, Ticket ID: {chat_response.ticket_id}")
     agent_streams = []
     selected_agent_list = json.loads(selected_agent_list)
 

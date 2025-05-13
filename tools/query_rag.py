@@ -3,9 +3,11 @@ import logging
 from langchain_core.tools import tool
 
 from functions.query_rag import retrieve_chunks
+from langchain_core.runnables.config import RunnableConfig
+
 
 @tool
-async def fetch_relevant_response(user_query: str, user_id: str, thread_id: str, query_id: str, file_id_list : list, page_list : list, top_k : int):
+async def fetch_relevant_response(user_query: str, user_id: str, thread_id: str, query_id: str, file_id_list : list, top_k : int):
     """
     Fetches the chunks from the vector database for the relevant user query.
 
@@ -22,8 +24,10 @@ async def fetch_relevant_response(user_query: str, user_id: str, thread_id: str,
     """    
     
     try:
+        # logging.info(f" from tool logging top k : {top_k}, thread id : {thread_id}, query id : {query_id}, file id list : {file_id_list}, user query : {user_query}")
+
         # Fetch the RAG response and chunks asynchronously
-        rag_response = await retrieve_chunks(user_query=user_query, thread_id = thread_id, file_id_list = file_id_list,query_id=query_id,page_list=page_list, top_k=top_k)
+        rag_response = await retrieve_chunks(user_query=user_query, thread_id = thread_id, file_id_list = file_id_list,query_id=query_id, top_k=top_k)
 
         final_response = {
             "status_code": 200,
