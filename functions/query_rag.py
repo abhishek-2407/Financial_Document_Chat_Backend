@@ -107,7 +107,7 @@ async def retrieve_chunks(user_query: str, thread_id : str ,file_id_list : List[
             "message": "success",
             "chunks": results,
         }
-        logging.info(f"Chunks response : {response}")
+        # logging.info(f"Chunks response : {response}")
         return response
         
     
