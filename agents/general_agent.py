@@ -127,7 +127,7 @@ async def general_agents_stream(query: str, user_id: str, thread_id: str, query_
         print("streaming")
        
 
-async def doc_agents_chat(query: str, user_id: str, thread_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
+async def doc_agents_chat(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
     try:
         DB_URI = os.getenv("DB_URI")
         start_time = time.time()
@@ -148,7 +148,7 @@ async def doc_agents_chat(query: str, user_id: str, thread_id: str, query_id: st
                                                         tools, 
                                                         state_modifier=_modify_state_messages, 
                                                         checkpointer=checkpointer)
-            config = {"configurable": {"user_id": user_id, "thread_id": thread_id}}
+            config = {"configurable": {"user_id": user_id}}
             
             response = {
                         "status_code": 200,
@@ -164,7 +164,6 @@ async def doc_agents_chat(query: str, user_id: str, thread_id: str, query_id: st
                 query_id_prompt = f"""Use the following arguments for internal processing:  
                     - **query_id**: {query_id}  
                     - **user_id**: {user_id}  
-                    - **thread_id**: {thread_id}  
                     - **file_id_list**: {file_id_list}
                         - If this list contains more than one file id (e.g., ["xyz", "abc"]), process each file id individually by invoking the tool separately for each one. 
                     - **page_list** (list[int]): If the user specifies page numbers in their query, extract them into a list. Otherwise, return an empty list.  

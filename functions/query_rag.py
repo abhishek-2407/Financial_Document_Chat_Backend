@@ -54,7 +54,7 @@ def connect_qdrant():
         raise HTTPException(status_code=500, detail="Failed to connect to Qdrant.")
 
 
-async def retrieve_chunks(user_query: str, thread_id : str ,file_id_list : List[str],query_id : str , top_k: int = 10) -> Dict[str, Any]:
+async def retrieve_chunks(user_query: str ,file_id_list : List[str],query_id : str , top_k: int = 10) -> Dict[str, Any]:
     """
     Asynchronously retrieves chunks from the RAG vector store and uses OpenAI to respond.
 
@@ -82,10 +82,10 @@ async def retrieve_chunks(user_query: str, thread_id : str ,file_id_list : List[
                         key="metadata.file_id",
                         match=qdrant_client.models.MatchAny(any=file_id_list),
                     ),
-                    qdrant_client.models.FieldCondition(
-                        key="metadata.thread_id",
-                        match=qdrant_client.models.MatchValue(value=thread_id),
-                    ),
+                    # qdrant_client.models.FieldCondition(
+                    #     key="metadata.thread_id",
+                    #     match=qdrant_client.models.MatchValue(value=thread_id),
+                    # ),
                     # qdrant_client.models.FieldCondition(
                     #     key="metadata.type",
                     #     match=qdrant_client.models.MatchValue(value="image"),

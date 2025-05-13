@@ -40,7 +40,6 @@ router = APIRouter()
 class ChatResponse(BaseModel):
     query : str
     user_id : str
-    ticket_id : str
     query_id : str
     file_id_list : List[str]
     stream : bool = False
@@ -115,7 +114,6 @@ async def get_chat_response(chat_response: ChatResponse):
             agent_streams.append(revenue_agents_stream(
                 query=agent_prompt,
                 user_id=chat_response.user_id,
-                thread_id=chat_response.ticket_id,
                 query_id=chat_response.query_id,
                 file_id_list=chat_response.file_id_list
             ))
@@ -124,7 +122,6 @@ async def get_chat_response(chat_response: ChatResponse):
             agent_streams.append(expense_agents_stream(
                 query=agent_prompt,
                 user_id=chat_response.user_id,
-                thread_id=chat_response.ticket_id,
                 query_id=chat_response.query_id,
                 file_id_list=chat_response.file_id_list
             ))
@@ -133,7 +130,6 @@ async def get_chat_response(chat_response: ChatResponse):
             agent_streams.append(comparative_agents_stream(
                 query=agent_prompt,
                 user_id=chat_response.user_id,
-                thread_id=chat_response.ticket_id,
                 query_id=chat_response.query_id,
                 file_id_list=chat_response.file_id_list
             ))
@@ -142,7 +138,6 @@ async def get_chat_response(chat_response: ChatResponse):
             agent_streams.append(summary_agents_stream(
                 query=agent_prompt,
                 user_id=chat_response.user_id,
-                thread_id=chat_response.ticket_id,
                 query_id=chat_response.query_id,
                 file_id_list=chat_response.file_id_list
             ))
@@ -151,7 +146,6 @@ async def get_chat_response(chat_response: ChatResponse):
             agent_streams.append(general_agents_stream(
                 query=agent_prompt,
                 user_id=chat_response.user_id,
-                thread_id=chat_response.ticket_id,
                 query_id=chat_response.query_id,
                 file_id_list=chat_response.file_id_list
             ))

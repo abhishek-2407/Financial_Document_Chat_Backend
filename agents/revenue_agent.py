@@ -40,7 +40,7 @@ def _modify_state_messages(user_query: str):
 
 tools = [fetch_relevant_response]
 
-async def revenue_agents_stream(query: str, user_id: str, thread_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
+async def revenue_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
     try:
         #DB_URI = "postgres://username@host:port/database_name""
         start_time = time.time()
@@ -62,12 +62,11 @@ async def revenue_agents_stream(query: str, user_id: str, thread_id: str, query_
                                                         prompt=revenue_analyst_agent_prompt,
                                                         # state_modifier=_modify_state_messages,
                                                         )
-            config = {"configurable": {"user_id": user_id, "thread_id": thread_id}}
+            config = {"configurable": {"user_id": user_id}}
             try:
                 query_id_prompt = f"""Use the following arguments for internal processing:  
                     - **query_id**: {query_id}  
                     - **user_id**: {user_id}  
-                    - **thread_id**: {thread_id}  
                     - **file_id_list**: {file_id_list}
                         - If this list contains more than one file id (e.g., ["xyz", "abc"]), process each file id individually by invoking the tool separately for each one. 
                     - **top_k** (int):  
