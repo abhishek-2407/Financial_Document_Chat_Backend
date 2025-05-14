@@ -20,6 +20,8 @@ from agents.revenue_agent import revenue_agents_stream
 from agents.comparative_agent import comparative_agents_stream
 from agents.summary_agent import summary_agents_stream
 from agents.general_agent import general_agents_stream
+from agents.calculation_agent import calculation_agents_stream
+
 
 from utils.s3_function import get_presigned_urls_from_s3,get_files_from_s3_in_base64_for_file,get_files_from_s3_in_base64
 from knowledge_base.agentic_chunking import get_advance_chunk
@@ -133,6 +135,14 @@ async def get_chat_response(chat_response: ChatResponse):
                 query_id=chat_response.query_id,
                 file_id_list=chat_response.file_id_list
             ))
+            
+        elif agent_name == "general_agent":
+            agent_streams.append(general_agents_stream(
+                query=agent_prompt,
+                user_id=chat_response.user_id,
+                query_id=chat_response.query_id,
+                file_id_list=chat_response.file_id_list
+            ))
 
         elif agent_name == "summary_agent":
             agent_streams.append(summary_agents_stream(
@@ -142,8 +152,8 @@ async def get_chat_response(chat_response: ChatResponse):
                 file_id_list=chat_response.file_id_list
             ))
 
-        elif agent_name == "general_agent":
-            agent_streams.append(general_agents_stream(
+        elif agent_name == "calculation_agent":
+            agent_streams.append(calculation_agents_stream(
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,

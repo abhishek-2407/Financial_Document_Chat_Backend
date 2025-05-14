@@ -72,8 +72,8 @@ async def general_agents_stream(query: str, user_id: str, query_id: str, file_id
                     - **file_id_list**: {file_id_list}
                         - If this list contains more than one file id (e.g., ["xyz", "abc"]), process each file id individually by invoking the tool separately for each one. 
                     - **top_k** (int):  
-                        - If the user asks for an **overall summary**, set top_k = 20.  
-                        - Otherwise, use `top_k = 10` for single-page or general queries.  
+                        - If the user asks for an **overall summary**, set top_k = 50.  
+                        - Otherwise, use `top_k = 25` general queries.  
                         
                     
                     **Get context from fetch_relevant_response tool everytime you need to get context.**

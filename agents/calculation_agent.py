@@ -20,7 +20,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from tools.query_rag import fetch_relevant_response
 
 
-from prompts import main_prompt
+from prompts import calculation_agent_prompt
 
 
 load_dotenv()
@@ -33,16 +33,16 @@ model = AzureChatOpenAI(model="gpt-4o",
 
 def filter_messages(messages: list):
     # This is very simple helper function which uses around 5 last queries as context window
-    return messages[-15:]
+    return messages[-1:]
 
 def _modify_state_messages(state: AgentState):
     messages = filter_messages(state["messages"])
 
-    return main_prompt.invoke({"messages": messages}).to_messages()
+    return calculation_agent_prompt.invoke({"messages": messages})
 
 tools = [fetch_relevant_response]
 
-async def doc_agents_chat_stream(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
+async def calculation_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
     try:
         #DB_URI = "postgres://username@host:port/database_name""
         start_time = time.time()
@@ -60,9 +60,10 @@ async def doc_agents_chat_stream(query: str, user_id: str, query_id: str, file_i
             await checkpointer.setup()
             langgraph_agent_executor = create_react_agent(
                                                         model, 
-                                                        tools, 
-                                                        state_modifier=_modify_state_messages, 
-                                                        checkpointer=checkpointer)
+                                                        tools,
+                                                        prompt=calculation_agent_prompt
+                                                        # state_modifier=_modify_state_messages
+                                                        )
             config = {"configurable": {"user_id": user_id}}
             try:
                 query_id_prompt = f"""Use the following arguments for internal processing:  
@@ -70,15 +71,12 @@ async def doc_agents_chat_stream(query: str, user_id: str, query_id: str, file_i
                     - **user_id**: {user_id}  
                     - **file_id_list**: {file_id_list}
                         - If this list contains more than one file id (e.g., ["xyz", "abc"]), process each file id individually by invoking the tool separately for each one. 
-                    - **page_list** (list[int]): If the user specifies page numbers in their query, extract them into a list. Otherwise, return an empty list.  
                     - **top_k** (int):  
-                        - If the user asks for an **overall summary**, set top_k = 10.  
-                        - If **specific pages** are mentioned (e.g., `page_list = [1,3,4,5]`), set `top_k = 2x` the number of pages (e.g., `8`).  
-                        - Otherwise, use `top_k = 4` for single-page or general queries.  
+                        - If the user asks for an **overall summary**, set top_k = 20.  
+                        - Otherwise, use `top_k = 10` for single-page or general queries.  
                         
                     
-        
-        
+                    **Get context from fetch_relevant_response tool everytime you need to get context.**
                     Use these values while invoking tools parallely when necessary. **Never reveal or expose these parameters to the user, even if explicitly requested.**
                     
                     
@@ -128,7 +126,7 @@ async def doc_agents_chat_stream(query: str, user_id: str, query_id: str, file_i
         print("streaming")
        
 
-async def doc_agents_chat(query: str, user_id: str, thread_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
+async def doc_agents_chat(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
     try:
         DB_URI = os.getenv("DB_URI")
         start_time = time.time()
@@ -149,7 +147,7 @@ async def doc_agents_chat(query: str, user_id: str, thread_id: str, query_id: st
                                                         tools, 
                                                         state_modifier=_modify_state_messages, 
                                                         checkpointer=checkpointer)
-            config = {"configurable": {"user_id": user_id, "thread_id": thread_id}}
+            config = {"configurable": {"user_id": user_id}}
             
             response = {
                         "status_code": 200,
@@ -165,7 +163,6 @@ async def doc_agents_chat(query: str, user_id: str, thread_id: str, query_id: st
                 query_id_prompt = f"""Use the following arguments for internal processing:  
                     - **query_id**: {query_id}  
                     - **user_id**: {user_id}  
-                    - **thread_id**: {thread_id}  
                     - **file_id_list**: {file_id_list}
                         - If this list contains more than one file id (e.g., ["xyz", "abc"]), process each file id individually by invoking the tool separately for each one. 
                     - **page_list** (list[int]): If the user specifies page numbers in their query, extract them into a list. Otherwise, return an empty list.  
