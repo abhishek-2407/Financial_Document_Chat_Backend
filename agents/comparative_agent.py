@@ -126,7 +126,7 @@ async def comparative_agents_stream(query: str, user_id: str, query_id: str, fil
         print("streaming")
        
 
-async def doc_agents_chat(query: str, user_id: str, thread_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
+async def doc_agents_chat(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
     try:
         DB_URI = os.getenv("DB_URI")
         start_time = time.time()
