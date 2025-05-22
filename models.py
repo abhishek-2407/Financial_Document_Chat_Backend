@@ -24,3 +24,11 @@ class UserS3Mapping(Base):
     folder_name = Column(String, nullable=True)
     rag_status = Column(Boolean, default=False)
 
+
+class User(Base):
+    __tablename__ = "user"
+    email = Column(String, primary_key=True, index=True)
+    password = Column(String)  # hashed password
+    access_token = Column(String, nullable=True)
+    access_token_creation_datetime = Column(DateTime, nullable=True)
+    role = Column(String, default="user")
