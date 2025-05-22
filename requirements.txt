@@ -21,3 +21,5 @@ opencv-python
 
 transformers
 pypdf2
+bcrypt
+python-jose
