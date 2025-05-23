@@ -1,7 +1,9 @@
-from sqlalchemy import Column, String, Boolean, DateTime, MetaData, Table, text
+from sqlalchemy import Column, String, Boolean, DateTime, MetaData, Table, text, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
+import enum
+
 import uuid
 
 Base = declarative_base()
@@ -32,3 +34,16 @@ class User(Base):
     access_token = Column(String, nullable=True)
     access_token_creation_datetime = Column(DateTime, nullable=True)
     role = Column(String, default="user")
+    
+class RoleEnum(str, enum.Enum):
+    master_admin = "super_admin"
+    admin = "admin"
+    user = "user"
+
+class UserInvite(Base):
+    __tablename__ = "user_invite"
+
+    email = Column(String, primary_key=True, index=True)
+    role = Column(Enum(RoleEnum, name="role_enum"), nullable=False)
+    invited = Column(Boolean, default=False)
+ 

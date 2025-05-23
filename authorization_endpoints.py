@@ -10,8 +10,17 @@ import os
 from models import User
 from dotenv import load_dotenv
 from utils.db import get_db
+from models import UserInvite, RoleEnum
+import logging
+
 
 load_dotenv()
+
+if len(logging.getLogger().handlers) > 0:
+    logging.getLogger().setLevel(logging.INFO)
+else:
+    logging.basicConfig(level=logging.INFO)
+
 
 router = APIRouter()
 
@@ -22,11 +31,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    
+class InviteRequest(BaseModel):
+    email: EmailStr
+    role: RoleEnum  # only accepts master_admin, admin, user
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
-    role: str = "user"
+    # role: str = "user"
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -46,7 +60,7 @@ def is_token_valid(user: User) -> bool:
     return datetime.utcnow() < expiry_time
 
 @router.post("/login", response_model=TokenResponse)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
+async def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == request.email).first()
     if not user or not bcrypt.checkpw(request.password.encode(), user.password.encode()):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -70,22 +84,36 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     }
 
 @router.post("/register", response_model=TokenResponse)
-def register(request: RegisterRequest, db: Session = Depends(get_db)):
+async def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    # Check if the email is in the user_invite table and marked as invited
+    invite = db.query(UserInvite).filter(
+        UserInvite.email == request.email,
+        UserInvite.invited == True
+    ).first()
+    logging.info(f"Invite: {invite}")
+
+    if not invite:
+        raise HTTPException(status_code=403, detail="Email is not invited to register")
+
+    # Check if the user is already registered
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    # Hash the password
     hashed_password = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
 
+    # Use role from UserInvite table, not from the request
     new_user = User(
         email=request.email,
         password=hashed_password,
-        role=request.role
+        role=invite.role
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
+    # Generate token
     access_token = create_access_token({"sub": new_user.email, "role": new_user.role})
     new_user.access_token = access_token
     new_user.access_token_creation_datetime = datetime.utcnow()
@@ -97,11 +125,10 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
         "role": new_user.role
     }
 
-
 security = HTTPBearer()
 
 @router.get("/verify-token")
-def verify_token(
+async def verify_token(
     credentials: HTTPAuthorizationCredentials = Security(security),
     db: Session = Depends(get_db)
 ):
@@ -129,3 +156,29 @@ def verify_token(
 
     except jwt.JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    
+@router.post("/invite")
+async def invite_user(request: InviteRequest, db: Session = Depends(get_db)):
+    # Check if the email is already in the UserInvite table
+    invite = db.query(UserInvite).filter(UserInvite.email == request.email).first()
+
+    if invite:
+        if invite.invited:
+            raise HTTPException(status_code=400, detail="User already invited")
+        else:
+            invite.role = request.role
+            invite.invited = True
+    else:
+        invite = UserInvite(
+            email=request.email,
+            role=request.role,
+            invited=True
+        )
+        db.add(invite)
+
+    db.commit()
+
+    # Placeholder: Send an email (replace with your actual mail sending logic)
+    print(f"Sent invite to {request.email} with role {request.role}")
+
+    return {"message": f"Invitation sent to {request.email}", "status": "success"}
