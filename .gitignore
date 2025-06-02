@@ -3,3 +3,7 @@ __pycache__
 vnvv
 vnvvv
 .DS_Store
+*.bin
+*.ipynb
+*.pdf
+local_vector_db

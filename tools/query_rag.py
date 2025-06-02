@@ -3,11 +3,12 @@ import logging
 from langchain_core.tools import tool
 
 from functions.query_rag import retrieve_chunks
+# from knowledge_base.rag_functions import retrieve_chunks
 from langchain_core.runnables.config import RunnableConfig
 
 
 @tool
-async def fetch_relevant_response(user_query: str, user_id: str, query_id: str, file_id_list : list, top_k : int):
+async def fetch_relevant_response(user_query: str, user_id: str, file_id_list : list, top_k : int):
     """
     Fetches the chunks from the vector database for the relevant user query.
 
@@ -27,7 +28,7 @@ async def fetch_relevant_response(user_query: str, user_id: str, query_id: str, 
         # logging.info(f" from tool logging top k : {top_k}, thread id : {thread_id}, query id : {query_id}, file id list : {file_id_list}, user query : {user_query}")
 
         # Fetch the RAG response and chunks asynchronously
-        rag_response = await retrieve_chunks(user_query=user_query, file_id_list = file_id_list,query_id=query_id, top_k=top_k)
+        rag_response = await retrieve_chunks(user_query=user_query, file_id_list = file_id_list, top_k=top_k)
 
         final_response = {
             "status_code": 200,
@@ -41,5 +42,5 @@ async def fetch_relevant_response(user_query: str, user_id: str, query_id: str, 
             "status_code" : 500,
             "chunks" : "Not able to fetch the relevant chunks"
         }
-        logging.info(f"Error : {e} for query_id : {query_id}")
+        logging.info(f"Error : {e}")
         return final_response

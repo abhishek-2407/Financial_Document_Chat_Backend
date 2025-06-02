@@ -54,7 +54,7 @@ def connect_qdrant():
         raise HTTPException(status_code=500, detail="Failed to connect to Qdrant.")
 
 
-async def retrieve_chunks(user_query: str ,file_id_list : List[str],query_id : str , top_k: int = 10) -> Dict[str, Any]:
+async def retrieve_chunks(user_query: str = "" ,file_id_list : List[str] = [], top_k: int = 10, page_list: List[str] = [] ) -> Dict[str, Any]:
     """
     Asynchronously retrieves chunks from the RAG vector store and uses OpenAI to respond.
 
@@ -92,6 +92,13 @@ async def retrieve_chunks(user_query: str ,file_id_list : List[str],query_id : s
                     # ),
                        
                 ]
+        
+        if page_list:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.page_number",
+                        match=qdrant_client.models.MatchAny(any=page_list),
+                    ))
         
         
         results = await vectorstore.asimilarity_search(

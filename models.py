@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, MetaData, Table, text, Enum
+from sqlalchemy import Column, String, Boolean, DateTime, MetaData, Table, text, Enum,JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -47,3 +47,17 @@ class UserInvite(Base):
     role = Column(Enum(RoleEnum, name="role_enum"), nullable=False)
     invited = Column(Boolean, default=False)
  
+class ReportStatus(str, enum.Enum):
+    inprogress = "inprogress"
+    completed = "completed"
+
+class SummaryReport(Base):
+    __tablename__ = "summary_report"
+
+    file_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    s3_url = Column(String, nullable=False)
+    file_name = Column(String, nullable=False)
+    status = Column(Enum(ReportStatus), default=ReportStatus.inprogress, nullable=False)
+    source_file_id = Column(JSON, nullable=False)  # Assumes a list of UUIDs
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    deleted_at = Column(DateTime, nullable=True, default=None) 

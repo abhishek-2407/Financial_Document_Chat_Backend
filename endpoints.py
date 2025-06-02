@@ -23,7 +23,7 @@ from agents.general_agent import general_agents_stream
 from agents.calculation_agent import calculation_agents_stream
 
 
-from utils.s3_function import get_presigned_urls_from_s3,get_files_from_s3_in_base64_for_file,get_files_from_s3_in_base64
+from utils.s3_function import get_presigned_urls_from_s3,get_files_from_s3_in_base64_for_file,get_files_from_s3_in_base64, delete_file_from_s3
 from knowledge_base.agentic_chunking import get_advance_chunk
 from knowledge_base.rag_functions import create_rag
 from dotenv import load_dotenv
@@ -76,6 +76,13 @@ class PDFRequest(BaseModel):
     thread_id : str
     upload_type : str = "file" 
     file_id_list : Optional[List[str]] = None 
+    
+class SummaryFileRequest(BaseModel):
+    user_id : str
+    thread_id : str
+    file_id_list : List[str]
+    file_name : str
+    # stream : bool = False
     
     
     
@@ -473,3 +480,84 @@ async def delete_file(delete_file_request: DeleteFileRequest):
             "status": 500,
             "response": "Error deleting file"
         }
+        
+
+from functions.doc_summarizer import summarize_document,markdown_to_pdf_method3,markdown_to_pdf_and_upload_to_s3
+@router.post("/summary-file")
+async def summary_file(summary_file_request: SummaryFileRequest):
+    
+    try :
+        summary_with_progress = await summarize_document(
+            thread_id=summary_file_request.thread_id, 
+            file_id_list=summary_file_request.file_id_list,
+            max_pages=70  
+        )
+        # markdown_to_pdf_method3(summary_with_progress, f"{summary_file_request.file_name}.pdf")
+        file_details = markdown_to_pdf_and_upload_to_s3(markdown_text=summary_with_progress,user_id=summary_file_request.user_id,thread_id=summary_file_request.thread_id, source_file_ids= summary_file_request.file_id_list, file_name=summary_file_request.file_name )
+        return {
+            "status": 200,
+            "response": "File summarized successfully",
+            "file_details": file_details
+        }
+        
+    except:
+        return {
+            "status": 500,
+            "response": "Error summarizing file"
+        }
+        
+@router.get("/get-summary-files")
+async def get_files():
+    query = """Select file_name, s3_url, source_file_id, file_id, status from summary_report where deleted_at is null"""
+    db =ConnectDB()
+    try:
+        response = db.fetch(query=query)
+        
+        return response
+        
+        
+    except Exception as e:
+        return {
+             "status_code" : 500,
+             "error" : e
+         }
+        
+    finally : 
+        db.close_connection()
+        
+@router.delete("/delete-summary-file")
+async def delete_summary_file(file_key: str, user_id : str):
+    
+    
+    key = f"{user_id}/generated-summary-file/{file_key}"
+    response = delete_file_from_s3(key)
+    
+    logging.info(f"{response}")
+    if response["status"] == "success":
+        db = ConnectDB()
+        update_query = [{
+                    "query" : """UPDATE public.summary_report
+                                SET deleted_at = %s
+                                WHERE file_name = %s
+                                """,
+                    "data" : (datetime.utcnow(), file_key,)
+                }]
+        
+        update = db.update(update_query)
+        logging.info(f"{update}")
+        db.close_connection()
+    
+        return {
+            "status": 200,
+            "response": "File deleted successfully"
+        }
+    else:
+        return {
+            "status": 500,
+            "response": "Error deleting file"
+        }
+    
+
+    
+        
+ 
