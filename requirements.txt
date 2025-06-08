@@ -23,3 +23,6 @@ transformers
 pypdf2
 bcrypt
 python-jose
+
+weasyprint
+markdown

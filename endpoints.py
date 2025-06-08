@@ -294,7 +294,7 @@ async def get_final_files():
 
 
 @router.post("/create-knowledge-base")
-async def extract_pdf_text(pdf_data: PDFRequest):
+def extract_pdf_text(pdf_data: PDFRequest):
     """
     Endpoint to extract text from multiple base64 encoded PDF files and create RAG for the document.
     
