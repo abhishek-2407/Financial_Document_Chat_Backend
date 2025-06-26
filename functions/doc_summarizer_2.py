@@ -1,5 +1,5 @@
 from utils.llm_calling import call_openai
-from typing import List
+from typing import List, Dict
 from functions.query_rag import retrieve_chunks
 from fastapi import Depends
 
@@ -12,31 +12,188 @@ import uuid
 import requests
 from utils.db import SessionLocal
 from sqlalchemy.orm import Session
+from functions.doc_summary_prompts import dynamic_sections, fixed_section_prompt, word_file_prompt
+from sqlalchemy import event, inspect
+import requests
+from models import UserS3Mapping
+from utils.s3_function import get_presigned_urls_from_s3
+import threading
+from models import FileAttribute  # Make sure this matches your model import
+from utils.db import get_db
 
 db = SessionLocal()
-
-
-from utils.s3_function import get_presigned_urls_from_s3
 
 class FileObject:
     """Helper class to mimic file object for presigned URL generation"""
     def __init__(self, file_name: str, file_type: str = "application/pdf"):
         self.fileName = file_name
         self.fileType = file_type
+        
+        
+async def get_dynamic_sections(file_id_list: List) :
+    
+    chunks = await retrieve_chunks(
+                user_query="",
+                file_id_list=file_id_list,
+                top_k=70 
+            )
+    user_prompt = f"This is the document information : {chunks}"
+    
+    response = call_openai(system_prompt=dynamic_sections, user_prompt=user_prompt,model="gpt-4o", 
+                temperature=0, parse_json=True)
+    
+    return response
 
-async def summarize_document(thread_id: str, file_id_list: List, max_pages: int = 10):
+
+
+def trigger_api_after_delay(file_id: str):
+    try:
+        # response = requests.post(
+        #     "http://0.0.0.0:8001/doc-eval/get-dynamic-sections",
+        #     json={"file_id_list": [str(file_id)], "user_id": "admin"}
+        # )
+        # response.raise_for_status()
+        gen_section = get_dynamic_sections(file_id_list=[file_id])
+        file_attr = FileAttribute(file_id=file_id, generated_section=gen_section)
+        db.add(file_attr)
+        
+        logging.info(f"✅ File Attributes Triggered for file_id: {file_id}")
+    except Exception as e:
+        logging.error(f"❌ Error Triggering File Attributes for file_id {file_id}: {e}")
+
+
+@event.listens_for(UserS3Mapping, 'after_update')
+def after_update_rag_status(mapper, connection, target):
+    state = inspect(target)
+    rag_status_history = state.attrs.rag_status.history
+
+    if rag_status_history.has_changes() and rag_status_history.added[0] is True:
+        # Delay execution by 10 seconds using threading.Timer
+        threading.Timer(5.0, trigger_api_after_delay, args=[str(target.file_id)]).start()
+        
+
+import asyncio
+
+async def summarize_document_filters(
+    thread_id: str,
+    file_id_list: List,
+    max_pages: int = 10,
+    fixed_section_list: List[str] | None = None,
+    dynamic_section_list: Dict | None = None,
+):
+    logging.info("▶️  Summarization started  | thread_id=%s  files=%s", thread_id, file_id_list)
+
+    # 1️⃣  Pull the text once
+    chunks = await retrieve_chunks(user_query="", file_id_list=file_id_list, top_k=50)
+    user_prompt = f"This is the document information you have to work on: {chunks}"
+    logging.info("✅  Chunks retrieved")
+
+    # 2️⃣  Normalise section names (e.g. 'Volume Growth' → 'volume_growth')
+    section_keys = [
+        s.lower().replace(" ", "_") for s in (fixed_section_list or [])
+    ]
+    logging.info("ℹ️  Normalised sections: %s", section_keys)
+
+    # 3️⃣  Flatten your fixed‑prompt list into a dict
+    prompt_map: dict[str, str] = {}
+    for item in fixed_section_prompt:   # fixed_section_prompt is your original list of dicts
+        prompt_map.update(item)
+
+    # 4️⃣  Define the worker that will run in a background thread
+    async def get_summary(sec: str) -> str:
+        if sec not in prompt_map:
+            logging.warning("⚠️  No prompt found for section '%s'", sec)
+            return f"## {sec}\n\nNo prompt found for this section.\n\n"
+
+        logging.info("🧵  Submitting section '%s' to background thread", sec)
+        # Run the blocking call in a thread.  For ≤3.8 replace with:
+        # loop = asyncio.get_running_loop()
+        # response = await loop.run_in_executor(None, call_openai, ...)
+        response = await asyncio.to_thread(
+            call_openai,
+            model="gpt-4o",
+            temperature=0,
+            system_prompt=prompt_map[sec],
+            user_prompt=user_prompt,
+        )
+        logging.info("✔️  Section '%s' completed", sec)
+        return f"\n\n{response}\n\n ---"
+
+    # 5️⃣  Fire off all workers concurrently
+    summaries = await asyncio.gather(*(get_summary(sec) for sec in section_keys))
+    logging.info("🏁  All sections processed")
+
+    # 6️⃣  Collate the result
+    if summaries:
+        final = "\n\n --- \n\n\n" + "".join(summaries)
+        logging.info("🎉  Final summary constructed")
+        return final
+
+    logging.warning("😕  No summaries generated")
+    return "#\n\nNo content summarised."
+            
+            
+
+async def summarize_document_filters_2(
+    thread_id: str,
+    file_id_list: List[str],
+    max_pages: int = 10,          # kept in case you later need it
+) -> str:
+    """
+    For every prompt in `word_file_prompt`, call the model concurrently
+    and return a single, collated response string.
+    """
+    logging.info("▶️  Summarization started | thread_id=%s files=%s", thread_id, file_id_list)
+
+    chunks = await retrieve_chunks(user_query="", file_id_list=file_id_list, top_k=50)
+    user_prompt = f"This is the document information you have to work on:\n\n{chunks}"
+    logging.info("✅  Chunks retrieved")
+
+    prompt_map: dict[str, str] = word_file_prompt    # <- key change
+    section_keys = list(prompt_map.keys())
+
+    async def get_summary(sec: str) -> str:
+        sys_prompt = prompt_map.get(sec)
+        if not sys_prompt:
+            logging.warning("⚠️  No prompt found for section '%s'", sec)
+            return f"## {sec}\n\nNo prompt found for this section.\n\n"
+
+        logging.info("🧵  Submitting section '%s' to background thread", sec)
+        response = await asyncio.to_thread(
+            call_openai,
+            model="gpt-4o",
+            temperature=0,
+            system_prompt=sys_prompt,
+            user_prompt=user_prompt,
+        )
+        logging.info("✔️  Section '%s' completed", sec)
+        return f"\n\n{response}\n\n---"
+
+    summaries = await asyncio.gather(*(get_summary(sec) for sec in section_keys))
+    logging.info("🏁  All sections processed")
+
+    if summaries:
+        final = "\n\n".join(summaries)
+        logging.info("🎉  Final summary constructed")
+        return final
+
+    logging.warning("😕  No summaries generated")
+    return "#\n\nNo content summarised."
+
+
+
+async def summarize_document(thread_id: str, file_id_list: List, max_pages: int = 10, fixed_section_list : List = None, dynamic_section_list : Dict = None):
     
     system_prompt = """
-    You are a DISCUSSION POINTS extractor with amazing facts and figure. Compare and provide the analysis with proper reasons also.
+    You are a detailed Document Analyser with all amazing facts and figure.
     
-    Use the data provide to you to generate the discussion points. No need to add any additional information. 
+    Use the data provide to you to generate a detailed summary of the document. No need to add any additional information.
     
     **Instructions 1:**
-      - Must provide reasons for the point if mentioned in the document.
       - Provide the best analysis from the information.
       - Do not mention the same things mentioned in the document.
+      - Mention the informations in Tables wherever needed.
       - The markdown format should be accurate.
-      - Provide the most Highlights points from tables.
     
     **Don't s:**
       - Do NOT add any conclusion.
@@ -58,9 +215,6 @@ async def summarize_document(thread_id: str, file_id_list: List, max_pages: int 
             🔶 **Overview**  
             ✅ This feature helps improve performance.  
 
-            🔸 **Key Details**  
-            ✅ It supports multiple formats.  
-            ❌ It does not work with outdated versions.  
             
     If you dont get any information from the document, just return "No information found"
     
@@ -246,7 +400,6 @@ def markdown_to_pdf_and_upload_to_s3(
             font-size: 12px;
             margin: 0;
             padding: 0;
-            border: none;
         }}
         
         /* Headings with progressive sizing */
@@ -346,8 +499,8 @@ def markdown_to_pdf_and_upload_to_s3(
             width: 100%;
             overflow-x: auto;
             margin: 1em 0;
-            border: none;
-            border-radius: 0;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
         }}
         
         table {{

@@ -10,7 +10,7 @@ from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel
 from fastapi import Body, HTTPException
-from fastapi import APIRouter , HTTPException, status
+from fastapi import APIRouter , HTTPException, status, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import List, Dict,Optional, Literal
 
@@ -32,12 +32,25 @@ from knowledge_base.update_vdb_s3 import delete_file_and_update_db
 
 from functions.testing_multiagents import agentic_flow
 from functions.router_llm_call import get_router_response
+from models import FileAttribute  # Make sure this matches your model import
+from utils.db import get_db
+from sqlalchemy.future import select
+from sqlalchemy.orm import Session
+from models import UserS3Mapping
+
+from functions.doc_summarizer_2 import get_dynamic_sections, summarize_document_filters, summarize_document_filters_2
+
 
 
 
 load_dotenv()
 
 router = APIRouter()
+
+class DynamicSection(BaseModel):
+    user_id : str
+    file_id_list : Optional[List[str]] = None 
+    
 
 class ChatResponse(BaseModel):
     query : str
@@ -82,6 +95,9 @@ class SummaryFileRequest(BaseModel):
     thread_id : str
     file_id_list : List[str]
     file_name : str
+    file_type : str
+    fixed_section_list: List[str] = None
+    dynamic_section_list: Dict = None
     # stream : bool = False
     
     
@@ -101,7 +117,6 @@ async def combined_stream(agent_streams):
 @router.post("/chat")
 async def get_chat_response(chat_response: ChatResponse):
     selected_agent_list = get_router_response(user_query=chat_response.query)  
-    # Example: [{"agent": "revenue_analyst", "prompt": "Provide detailed revenue analysis"}, ...]
 
     logging.info(f"Selected Agents : {selected_agent_list}")
     # logging.info(f"Query : {chat_response.query}, User ID: {chat_response.user_id}, Ticket ID: {chat_response.ticket_id}")
@@ -293,6 +308,16 @@ async def get_final_files():
     
 
 
+def update_rag_status(db: Session, thread_id: str, file_id: str):
+    mapping = db.query(UserS3Mapping).filter_by(thread_id=thread_id, file_id=file_id).first()
+    if mapping:
+        mapping.rag_status = True
+        db.commit()
+        db.refresh(mapping)  # Optional: refresh to get latest state
+        return {"success": True, "message": "RAG status updated"}
+    else:
+        return {"success": False, "message": "Mapping not found"}
+
 @router.post("/create-knowledge-base")
 def extract_pdf_text(pdf_data: PDFRequest):
     """
@@ -351,16 +376,18 @@ def extract_pdf_text(pdf_data: PDFRequest):
                 )  
                 rag_result = create_rag(summaries["overall_summary"], thread_id=thread_id) 
                 
-                db = ConnectDB()
-                update_query = [{
-                    "query" : """UPDATE public.user_s3_mapping
-                                SET rag_status = TRUE
-                                WHERE thread_id = %s
-                                AND file_id = %s;""",
-                    "data" : (str(thread_id), str(file_id))
-                }]
+                # db = ConnectDB()
+                # update_query = [{
+                #     "query" : """UPDATE public.user_s3_mapping
+                #                 SET rag_status = TRUE
+                #                 WHERE thread_id = %s
+                #                 AND file_id = %s;""",
+                #     "data" : (str(thread_id), str(file_id))
+                # }]
                 
-                db_response = db.update(update_query)
+                # db_response = db.update(update_query)
+                db = next(get_db())
+                response = update_rag_status(db = db, file_id= file_id, thread_id=thread_id)
                 
                 
                 return {
@@ -379,9 +406,7 @@ def extract_pdf_text(pdf_data: PDFRequest):
                     "error_message": str(e),
                     "status": "failed"
                 }
-            
-            finally :
-                db.close_connection()
+        
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
@@ -483,12 +508,113 @@ async def delete_file(delete_file_request: DeleteFileRequest):
         
 
 from functions.doc_summarizer import summarize_document,markdown_to_pdf_method3,markdown_to_pdf_and_upload_to_s3
+
 @router.post("/summary-file")
 async def summary_file(summary_file_request: SummaryFileRequest):
     
+    file_type = summary_file_request.file_type
+    
+    if file_type == "detailed_insights" :
+        
+        try :
+            summary_with_progress = await summarize_document_filters(
+                thread_id=summary_file_request.thread_id, 
+                file_id_list=summary_file_request.file_id_list,
+                fixed_section_list=summary_file_request.fixed_section_list,
+                max_pages=70  
+            )
+            # markdown_to_pdf_method3(summary_with_progress, f"{summary_file_request.file_name}.pdf")
+            file_details = markdown_to_pdf_and_upload_to_s3(markdown_text=summary_with_progress,user_id=summary_file_request.user_id,thread_id=summary_file_request.thread_id, source_file_ids= summary_file_request.file_id_list, file_name=summary_file_request.file_name )
+            return {
+                "status": 200,
+                "response": "File summarized successfully",
+                "file_details": file_details
+            }
+            
+        except:
+            return {
+                "status": 500,
+                "response": "Error summarizing file"
+            }
+            
+    elif file_type == "discussion_points":
+        try :
+            summary_with_progress = await summarize_document_filters_2(
+                thread_id=summary_file_request.thread_id,
+                file_id_list=summary_file_request.file_id_list,
+                max_pages=70  
+            )
+            # markdown_to_pdf_method3(summary_with_progress, f"{summary_file_request.file_name}.pdf")
+            file_details = markdown_to_pdf_and_upload_to_s3(markdown_text=summary_with_progress,user_id=summary_file_request.user_id,thread_id=summary_file_request.thread_id, source_file_ids= summary_file_request.file_id_list, file_name=summary_file_request.file_name )
+            return {
+                "status": 200,
+                "response": "File summarized successfully",
+                "file_details": file_details
+            }
+            
+        except:
+            return {
+                "status": 500,
+                "response": "Error summarizing file"
+            }
+            
+    else :
+        
+        try :
+            summary_with_progress, summary_with_progress_2 = await asyncio.gather(
+                        summarize_document_filters(
+                            thread_id=summary_file_request.thread_id, 
+                            file_id_list=summary_file_request.file_id_list,
+                            fixed_section_list=summary_file_request.fixed_section_list,
+                            max_pages=70  
+                        ),
+                        summarize_document_filters_2(
+                            thread_id=summary_file_request.thread_id,
+                            file_id_list=summary_file_request.file_id_list,
+                            max_pages=70  
+                        )
+                    )
+            
+            file_details, file_details_2 = await asyncio.gather(
+                asyncio.to_thread(
+                    markdown_to_pdf_and_upload_to_s3,
+                    markdown_text=summary_with_progress,
+                    user_id=summary_file_request.user_id,
+                    thread_id=summary_file_request.thread_id,
+                    source_file_ids=summary_file_request.file_id_list,
+                    file_name=f"{summary_file_request.file_name}-detailed_insights"
+                ),
+                asyncio.to_thread(
+                    markdown_to_pdf_and_upload_to_s3,
+                    markdown_text=summary_with_progress_2,
+                    user_id=summary_file_request.user_id,
+                    thread_id=summary_file_request.thread_id,
+                    source_file_ids=summary_file_request.file_id_list,
+                    file_name=f"{summary_file_request.file_name}-discussion_points"  # Different filename for second file
+                )
+            )
+            
+           
+            return {
+                    "status": 200,
+                    "response": "File summarized successfully",
+                    "file_details": file_details,
+                    "file_details_2": file_details_2
+                    }
+            
+        except:
+            return {
+                "status": 500,
+                "response": "Error summarizing file"
+            }
+        
+        
+@router.post("/summary-file-2")
+async def summary_file_2(summary_file_request: SummaryFileRequest):
+    
     try :
-        summary_with_progress = await summarize_document(
-            thread_id=summary_file_request.thread_id, 
+        summary_with_progress = await summarize_document_filters_2(
+            thread_id=summary_file_request.thread_id,
             file_id_list=summary_file_request.file_id_list,
             max_pages=70  
         )
@@ -505,6 +631,7 @@ async def summary_file(summary_file_request: SummaryFileRequest):
             "status": 500,
             "response": "Error summarizing file"
         }
+        
         
 @router.get("/get-summary-files")
 async def get_files():
@@ -557,6 +684,44 @@ async def delete_summary_file(file_key: str, user_id : str):
             "response": "Error deleting file"
         }
     
+@router.post("/get-dynamic-sections")
+async def dynamic_section(sections : DynamicSection, db: Session = Depends(get_db)):
+    
+    try:
+        result = {}
+
+        for file_id in sections.file_id_list:
+            query = db.execute(
+                select(FileAttribute).where(FileAttribute.file_id == file_id)
+            )
+            file_attr = query.scalar_one_or_none()
+
+            if file_attr and file_attr.generated_section:
+                result = file_attr.generated_section
+            else:
+                gen_section = await get_dynamic_sections(file_id_list=[file_id])
+                
+                logging.info(gen_section)
+
+                if file_attr:
+                    file_attr.generated_section = gen_section
+                else:
+                    file_attr = FileAttribute(file_id=file_id, generated_section=gen_section)
+                    db.add(file_attr)
+
+                db.commit()
+                result = gen_section
+
+        return {
+            "status": 200,
+            "response": result
+        }
+
+    except Exception as e:
+        return {
+            "status": 500,
+            "response": f"Error in generating response: {str(e)}"
+        }
 
     
         

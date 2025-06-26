@@ -61,3 +61,12 @@ class SummaryReport(Base):
     source_file_id = Column(JSON, nullable=False)  # Assumes a list of UUIDs
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True, default=None) 
+    
+    
+class FileAttribute(Base):
+    __tablename__ = "files_attribute"
+
+    file_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    generated_section = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+   
