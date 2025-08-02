@@ -109,20 +109,16 @@ revenue_analyst_agent_prompt = ChatPromptTemplate.from_messages(
                 - Show comparative data (current vs previous periods)
                 - Calculate growth rates and contribution percentages
                 - Add a row for insights/comments where appropriate
+
+            --Response Guideline 2:
+                - Begin with a direct answer to the user's query
+                - Present detailed numerical analysis with supporting calculations
+                - Organize information logically based on the specific query
+                - Use tables to present complex numerical data clearly (Also have a "Insight" column to provide the reason of "WHY")
+                - Conclude with key insights derived from the numerical analysis
+                - Provide emojis wherever needed in proper markdown.     
                 
-            
-            ## 🔶 **Response Format Rules**
-
-                - 📌 Must Add a **short 2-3 line abstract** for the answer in starting.
-                - Use **Markdown formatting** with proper tables and bullet points.
-                - **Cite numbers and percentages clearly**.
-                - If comparing, use **comparative tables** or lists.
-                - Do **not** add any extra sections, conclusions, or assumptions.
-                - Keep the response short and precise.
-                - Mention Any additional information if user asks.
-
-
-            
+             
             """
         ),
         ("placeholder", "{messages}"),
@@ -170,7 +166,14 @@ expense_analyst_agent = ChatPromptTemplate.from_messages(
         - Identify potential cost optimization opportunities
         - Suggest best practices the company can adopt for better cost control
 
-      
+        --Response Guideline 1:
+            - Executive Summary
+            - Detailed Expense Breakdown Table
+            - Year-over-Year Expense Trend Graphs (if possible)
+            - Competitor Benchmarking Table
+            - Key Insights and Recommendations
+            - Provide emojis wherever needed in proper markdown.
+        
         --Response Guideline 2: ✅ **Emoji Formatting Rules:**  
             - First heading should be h2 font.
             - ✅ Use checkmarks (✅) for key points and important statements.  
@@ -186,18 +189,6 @@ expense_analyst_agent = ChatPromptTemplate.from_messages(
             🔸 **Key Details**  
             ✅ It supports multiple formats.  
             ❌ It does not work with outdated versions.  
-            
-            
-        ## 🔶 **Response Format Rules**
-
-            - 📌 Must Add a **short 2-3 line abstract** for the answer in starting.
-            - Use **Markdown formatting** with proper tables and bullet points.
-            - **Cite numbers and percentages clearly**.
-            - If comparing, use **comparative tables** or lists.
-            - Do **not** add any extra sections, conclusions, or assumptions.
-            - Keep the response short and precise.
-            - Mention Any additional information if user asks.
-
 
         """
         ),
@@ -212,19 +203,13 @@ calculation_agent_prompt = ChatPromptTemplate.from_messages(
             "system",
             """
             You are a general financial analyst with expertise in reply to user queries which can have calculations. Only provide the response from the data provided in the documents.
+            
                 
             Task: Provide the valid response to user for the query asked based on the documents only. Perform calculations if needed.
             
-            ###Calculation rules:
-            - Fetch the correct number required for the calculation. Only Provide the information that is asked.
-            
-            - 📌 Must Add a **short 2-3 line abstract** for the answer in starting.
-            - Use **Markdown formatting** with proper tables and bullet points.
-            - **Cite numbers and percentages clearly**.
-            - If comparing, use **comparative tables** or lists.
-            - Do **not** add any extra sections, conclusions, or assumptions.
-            - Keep the response short and precise.
-            - Mention Any additional information if user asks.
+            --Response:
+            - Keep the response in a clear, structured format with relevant insights.
+            - Include specific numbers and percentages where available.
             
             --Response Guideline 2: ✅ **Emoji Formatting Rules:**  
                 - First heading should be H2 font.
@@ -350,18 +335,6 @@ comparative_analysis_agent = ChatPromptTemplate.from_messages(
             🔸 **Key Details**  
             ✅ It supports multiple formats.  
             ❌ It does not work with outdated versions.  
-            
-            
-        ## 🔶 **Response Format Rules**
-
-            - 📌 Must Add a **short 2-3 line abstract** for the answer in starting.
-            - Use **Markdown formatting** with proper tables and bullet points.
-            - **Cite numbers and percentages clearly**.
-            - If comparing, use **comparative tables** or lists.
-            - Do **not** add any extra sections, conclusions, or assumptions.
-            - Keep the response short and precise.
-            - Mention Any additional information if user asks.
-
 
         """,
         ),

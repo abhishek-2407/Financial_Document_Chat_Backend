@@ -3,6 +3,22 @@ mentioned_sections = {
     "": """"""
 }
 
+post_prompt = """
+
+  ### Output Format:
+
+- Replace all placeholders (e.g., X, Y, Z) with real numbers found in the document.
+- Do not invent or hallucinate data — only include a point if actual numbers are found.
+- Use Markdown format, starting the table on a new line to prevent rendering issues.
+- For nested points, use markdown sub-bullets.
+- Group all output under `#### A. POSITIVES` heading. And numbering of the pointers should be accurate.
+- For each point, mention the slide number or page number in parentheses like (Page 12).
+- Do not add anything beyond what's requested.
+
+✅ Only include points where full numeric data is present.
+
+"""
+
 standard_output_template = """
 
       - Provide the reasons with some calculations if needed.  
@@ -210,40 +226,62 @@ fixed_section_prompt = [
 ]
 
 word_file_prompt = { 
-    "page_1" : """You are a points extractor from the documents mentioned.
-                These are the points which you needs to extract :
-                
-  This is just for reference :               
-  ** A. POSITIVES 
+    "page_1" : f"""
+You are an information extractor from business documents.
 
-    1. VOLUME GROWTH OF N% VS INDUSTRY GROWTH OF N% in in quarter  ABD. (Take this number from Key Value Drivers Page : All India)
+Your task is to extract **quantitative performance points** from the document that match the structure and themes listed below.
 
-    2. HIGHER USE OF PET COKE FROM n% TO n% IN Q2- RESULTING IN LOWER FUEL RATE RS n/MCV VS RS n/MCV BUDGET (SLIDE 44) 
+### 🎯 Extraction Focus:
+Extract only the following types of **performance insights**, replacing all placeholder "n" and "X" values with actual values from the document. Focus on **differences, trends, or comparisons**, as expressed numerically.
 
-    3. LOGISTICS – LEAD LOWER BY n KMS VS BUDGET (n KMS LOWER VS Q2Quarter  ABC).  
-      a. TLC AT RS n/B LOWER BY RS n PB VS LY (Budget Rs n/B) – mainly due to gain from new capacities, higher L1 sourcing and efficiencies.  
+#### A. POSITIVES
 
-    4. CONTINUED GOOD PERFORMANCE IN BPD. EBITDA continues to be better than budget (Rs n Cr vs Rs n Cr budget), despite lower revenues vs budget (Rs n Cr vs Rs n Cr budget). ROCE at n% in Quarter ABC (Slide 35) 
-      a. Liquid waterproofing adding incremental n% contribution to premium products 
+1. **Volume Growth**  
+   - Format: "VOLUME GROWTH OF [X]% VS INDUSTRY GROWTH OF [Y]% in Quarter [Z]"  
+   - 📝 *Look for this on the "Key Value Drivers" page under "All India"*
 
-    5. RMC VAC Plus – now n% of total volumes vs n% in Q2Quarter  ABC (n% in Quarter  ABC). 
+2. **Pet Coke Usage**  
+   - Extract the change in % pet coke usage and mention its effect (e.g., cost, efficiency).
+   - Format: "USE OF PET COKE CHANGED FROM [X]% TO [Y]% IN Q[Z] RESULTING IN FUEL RATE OF RS [A]/MCV VS RS [B]/MCV"
 
-    6. EXCELLENT PROGRESS ON PROJECTS - with many projects completed before schedule. 
+3. **Logistics**  
+   - LEAD distance: report the values and differences vs budget or prior quarter  
+   - TLC: report actual TLC and comparisons with budget/LY values  
+   - Example:
+     - "LEAD DISTANCE IN Q[Z]: [X] KMS VS BUDGET [Y] KMS"
+     - "TLC AT RS [X]/B VS RS [Y]/B LAST YEAR (Budget: RS [Z]/B)"
 
-    7. TALUKA RANKING – No 1 in n% of Taluka in (quarter or half year) vs n% in Quarter  ABC. No 1+2 in n% vs n% LY 
+4. **BPD Performance**  
+   - Include any mention of EBITDA, ROCE, or premium product contribution  
+   - Format:
+     - "EBITDA: RS [X] Cr vs Budget RS [Y] Cr"
+     - "ROCE: [X]% in Q[Z]"
+     - "LIQUID WATERPROOFING CONTRIBUTED [X]% TO PREMIUM PRODUCTS"
 
-    8.UBS – n outlets in Qarter n vs budget of n. YoY Growth in Birla Pivot n% and UTCL brands n% 
+5. **RMC VAC Plus**  
+   - Format: "RMC VAC Plus: [X]% of volumes vs [Y]% in Q[Z]"
 
-    9. Fuel cost better in in quarter  ABD at Rs n/Mkcal vs LE of Rs n/Mkcal – due to optimized use to Petcoke 
-    
+6. **Project Execution**  
+   - Include only if projects are **quantifiably ahead of schedule** or specifically highlighted.
+   - Format: "PROJECTS PROGRESS: [Summary with numbers or timing]"
 
-  **
+7. **Taluka Ranking**  
+   - Example: "No. 1 in [X]% of Talukas in Q[Z] vs [Y]% in prior quarter"
+
+8. **UBS / Outlet Growth**  
+   - Format:
+     - "UBS: [X] outlets in Q[Z] vs Budget [Y]"
+     - "YoY Growth: Birla Pivot [X]%, UTCL [Y]%"
+
+9. **Fuel Cost**  
+   - Format: "Fuel Cost in Q[Z]: RS [X]/Mkcal vs RS [Y]/Mkcal (LE or Budget)"
+
+---
                
-  Extract these kinds of points if available in the document mentioned .
-  Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.            
+  {post_prompt}            
                """,
                
-  "page_2" : """  
+  "page_2" : f"""  
       You are a points extractor from the documents mentioned.
       These are the points which you needs to extract. This is an example do not refer to the data from this section :
       
@@ -256,11 +294,11 @@ word_file_prompt = {
           
           4. Sales performance trend (Provide reasons and a table for the trend)
           
-        Extract these kinds of points if available in the document mentioned .
-        Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
+    {post_prompt}
+        
   """,
   
-  "page_3" : """  
+  "page_3" : f"""  
       You are a points extractor from the documents mentioned.
       These are the points which you needs to extract. This is an example do not refer to the data from this section :
       
@@ -290,12 +328,11 @@ word_file_prompt = {
             
             **Create a quarter -wise table for this section if possible**
 
+        {post_prompt}
         
-        Extract these kinds of points if available in the document mentioned .
-        Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
   """,
   
-  "page_4" : """
+  "page_4" : f"""
   You are a points extractor from the documents mentioned.
   These are the points which you needs to extract. This is an example do not refer to the data from this section :
   '
@@ -315,11 +352,10 @@ word_file_prompt = {
           RoCE
           No of dealers
   '
-    Extract these kinds of points if available in the document mentioned .
-    Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
+  {post_prompt}
 
   """,
-  "page_5" : """
+  "page_5" : f"""
   You are a points extractor from the documents mentioned.
   These are the points which you needs to extract. This is an example do not refer to the data from this section :
   
@@ -334,12 +370,11 @@ word_file_prompt = {
       Cover this kind of points with supporting tables of industry growth and UTCL growth quarter wise.
       
     '
-  Extract these kinds of points if available in the document mentioned .
-  Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
+  {post_prompt}
 
   """,
   
-  "page_6" : """
+  "page_6" : f"""
   You are a points extractor from the documents mentioned.
   These are the points which you needs to extract. This is an example do not refer to the data from this section :
     '
@@ -350,11 +385,10 @@ word_file_prompt = {
       
       Must provide supporting tables which consists data of Region wise Growth rates (YoY) and UTCL Zone wise market share trend
     '
-  Extract these kinds of points if available in the document mentioned .
-  Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
+  {post_prompt}
   
   """,
-  "page_7" : """
+  "page_7" : f"""
     You are a points extractor from the documents mentioned.
     These are the points which you needs to extract. This is an example do not refer to the data from this section :
     
@@ -382,12 +416,10 @@ word_file_prompt = {
         - Contribution Other Rs Cr
 
       ' 
-  
-    Extract these kinds of points if available in the document mentioned .
-    Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
-  
+    {post_prompt}
+    
   """,
-  "page_8" : """
+  "page_8" : f"""
     You are a points extractor from the documents mentioned.
     These are the points which you needs to extract. This is an example do not refer to the data from this section :
   
@@ -422,15 +454,12 @@ word_file_prompt = {
         7.	SOLAR: Share of Solar in overall power mix Q3(quarter ) n% (budget n%)
           a.	Delay in RE project commissioning at RWCW, GCW, MKCW, JCW, MP Plants and KUCW – how much capacity and reason for delay? (slide 42)
           b.	Plan was to commission n MW in Q3, but only n MW got commissioned 
-
-
     '
-  Extract these kinds of points if available in the document mentioned .
-  Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
+  {post_prompt}
   
   """,
   
-  "page_9" : """
+  "page_9" : f"""
   
   You are a points extractor from the documents mentioned.
   These are the points which you needs to extract. This is an example do not refer to the data from this section :
@@ -450,13 +479,12 @@ word_file_prompt = {
             - Primary lead (Kms)
 
   '
-  Extract these kinds of points if available in the document mentioned . Do not Provide any additional information.
-  Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
   
+  {post_prompt}
   
   """,
   
-  "page_10" : """
+  "page_10" : f"""
   You are a points extractor from the documents mentioned.
   These are the points which you needs to extract. This is an example do not refer to the data from this section :
   
@@ -469,14 +497,29 @@ word_file_prompt = {
       Provide a table which will have UNCL, century, overall details quarterwise.
   
   '
+
+  {post_prompt}
   
-  Extract these kinds of points if available in the document mentioned .
-  Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
+  """,
+  "page_11" : f"""
+  You are a points extractor from the documents mentioned.
+  These are the points which you needs to extract. This is an example do not refer to the data from this section :
   
+  '
+   I. FINANCIALS
+    1. PROFITABILITY 
+      Provide a table which will have UTCL Ebitda quarterwise.
+      
+    2. ROCE :
+      Provide a table which will have UNCL, century, overall details quarterwise.
+  
+  '
+
+  {post_prompt}
   
   """,
   
-  "page_11" : """
+  "page_12" : f"""
   
   You are a points extractor from the documents mentioned.
   These are the points which you needs to extract. This is an example do not refer to the data from this section :
@@ -494,8 +537,8 @@ word_file_prompt = {
         d.	Continuing with Pentnikota due to land and limestone availability.
   
   '
-  Extract these kinds of points if available in the document mentioned . DO not add anything else.
-  Keep the Nested points properly in markdown format, points should be under a h4 with proper heading if needed.
+  
+  {post_prompt}
   
   """
                

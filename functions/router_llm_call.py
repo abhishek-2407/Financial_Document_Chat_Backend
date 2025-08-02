@@ -13,12 +13,12 @@ def get_router_response(user_query: str) -> str:
     - expense_analyst: Handles queries related to expense analysis, cost structures, operational or departmental expenses, expense trends, and cost optimization strategies.
     - comparative_analysis: Handles queries involving comparisons across time periods, business units, competitors, or financial trends; also includes benchmarking and variance analysis.
     - summary_agent: Handles queries that request a concise summary of financial documents, such as reports, filings, or statements.
-    - calculation_agent: Handles numerical computations, derived financial metrics (like ratios, margins, growth), or any query requiring calculations. Use this when no other category fits.
-    - general_agent: Handles general Q&A, recommendations, clarifications, or queries that don't require specialized analysis or calculations.
+    - calculation_agent: Handles numerical computations, derived financial metrics, or any query requiring calculations. Use this if asked.
+    - general_agent: Handles general Q&A, recommendations, clarifications, or queries that don't require specialized analysis. Also Use this when no other category fits.
 
     Return your output in the following format (JSON list of objects):
     [ 
-        { "agent": "agent_name", "prompt": "Agent-specific reformulated prompt for processing." }, as many as needed.
+        { "agent": "agent_name", "prompt": "User prompt- Do not add anything extra" }, as many as needed.
     ]
 
     Examples:
