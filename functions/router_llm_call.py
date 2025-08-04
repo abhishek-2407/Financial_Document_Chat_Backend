@@ -18,7 +18,7 @@ def get_router_response(user_query: str) -> str:
 
     Return your output in the following format (JSON list of objects):
     [ 
-        { "agent": "agent_name", "prompt": "User prompt- Do not add anything extra" }, as many as needed.
+        { "agent": "agent_name", "prompt": "User prompt- Do not add anything extra or change the query" }, as many as needed.
     ]
 
     Examples:

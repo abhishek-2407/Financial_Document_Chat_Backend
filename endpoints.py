@@ -24,7 +24,7 @@ from agents.calculation_agent import calculation_agents_stream
 
 
 from utils.s3_function import get_presigned_urls_from_s3,get_files_from_s3_in_base64_for_file,get_files_from_s3_in_base64, delete_file_from_s3
-from knowledge_base.agentic_chunking import get_advance_chunk
+from knowledge_base.agentic_chunking import get_advance_chunk, get_advance_chunk_gemini
 from knowledge_base.rag_functions import create_rag
 from dotenv import load_dotenv
 from utils.postgres_connection import ConnectDB
@@ -366,7 +366,7 @@ def extract_pdf_text(pdf_data: PDFRequest):
         def process_single_file(filename, base64_str, thread_id, file_id, extension, file_type):
             try:
                 logging.info(f"thread_id: {thread_id}, file_id: {file_id}")
-                summaries = get_advance_chunk(
+                summaries = get_advance_chunk_gemini(
                     base64_str=base64_str,
                     file_name=filename,
                     thread_id=thread_id,

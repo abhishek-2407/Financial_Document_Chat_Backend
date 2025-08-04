@@ -168,28 +168,39 @@ def check_and_create_collection(collection_name:str, size: int = 1536):
         )
     
 # RAG Utilities
-def create_rag(chunked_data: List[Dict[str, Any]], thread_id : str) -> Dict[str, str]:
+def create_rag(chunked_data: List[Dict[str, Any]], thread_id: str) -> Dict[str, str]:
     """
-    Creates a RAG (Retrieval-Augmented Generation) vector store with the chunked data.
+    Creates a RAG (Retrieval-Augmented Generation) vector store with the chunked data in batches of 15.
 
     Args:
         chunked_data (List[Dict[str, Any]]): List of document chunks.
+        thread_id (str): Unique thread identifier.
 
     Returns:
         Dict[str, str]: Status and collection name of the created vector store.
     """
     try:
         client = connect_qdrant()
-        client.update_collection(collection_name=collection_name, timeout=30)
-        
+        client.update_collection(collection_name=collection_name, timeout=120)
+
+        logging.info(f"Starting to add documents to collection: {collection_name} in batches")
+
         vectorstore = QdrantVectorStore(
             client=client,
             collection_name=collection_name,
             embedding=embeddings,
         )
-        vectorstore.add_documents(chunked_data)
-        logging.info(f"Vector store created for collection: {collection_name} and thread_id  : {thread_id}")
+
+        # Process in batches of 15
+        batch_size = 20
+        for i in range(0, len(chunked_data), batch_size):
+            batch = chunked_data[i:i + batch_size]
+            vectorstore.add_documents(batch)
+            logging.info(f"Added batch {i//batch_size + 1} with {len(batch)} documents")
+
+        logging.info(f"Vector store created for collection: {collection_name} and thread_id: {thread_id}")
         return {"collection_name": collection_name, "vectorstore_status": "created"}
+
     except Exception as e:
         logging.exception(f"Failed to create vector store: {e}")
         return {"collection_name": collection_name, "vectorstore_status": "failed"}

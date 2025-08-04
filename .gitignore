@@ -7,3 +7,4 @@ vnvvv
 *.ipynb
 *.pdf
 local_vector_db
+*.json

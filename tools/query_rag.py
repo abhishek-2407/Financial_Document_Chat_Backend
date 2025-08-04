@@ -8,7 +8,7 @@ from langchain_core.runnables.config import RunnableConfig
 
 
 @tool
-async def fetch_relevant_response(user_query: str, user_id: str, file_id_list : list, top_k : int = 30):
+async def fetch_relevant_response(user_query: str, user_id: str, file_id_list : list, top_k : int = 20):
     """
     Fetches the chunks from the vector database for the relevant user query.
 

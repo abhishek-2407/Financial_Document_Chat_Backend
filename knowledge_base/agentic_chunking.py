@@ -21,11 +21,19 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from PIL import Image
+from vertexai.generative_models import GenerativeModel, Part
+import vertexai
+
 from pdf2image import convert_from_bytes
 # from IPython.display import Image, display
 
 
 load_dotenv()
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "abg-pulse-oab-a5c1d2b4817c.json")
+os.environ["VERTEXAI_PROJECT_ID"] = os.getenv("VERTEXAI_PROJECT_ID", "abg-pulse-oab")
+vertexai.init(project="abg-pulse-oab")
+
 
 
 def save_overall_summary(overall_summary, file_path="overall_summary.json"):
@@ -100,8 +108,7 @@ def split_document_to_image_base64_pages(base64_doc: str, file_type :str, extens
         # elif file_type in ['application/vnd.openxmlformats-officedocument.presentationml.presentation',
         #                   'application/vnd.ms-powerpoint']:
         #     # Handle PPTX/PPT files
-        #     pages_base64 = _convert_powerpoint_to_images(doc_bytes)
-            
+        #     pages_base64 = _convert_powerpoint_to_images(doc_bytes)            
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
             
@@ -110,7 +117,7 @@ def split_document_to_image_base64_pages(base64_doc: str, file_type :str, extens
         
     return pages_base64
 
-def _convert_pdf_to_images(pdf_bytes: bytes, dpi: int = 200, max_workers: int = 100) -> List[str]:
+def _convert_pdf_to_images(pdf_bytes: bytes, dpi: int = 300, max_workers: int = 100) -> List[str]:
     """Convert PDF pages to images."""
     
     def process_page(page):
@@ -142,7 +149,7 @@ def _convert_pdf_to_images(pdf_bytes: bytes, dpi: int = 200, max_workers: int = 
     
     return pages_base64
 
-def _convert_image_to_base64(img: Image.Image, format: str = "PNG", optimize: bool = True, quality: int = 85) -> str:
+def _convert_image_to_base64(img: Image.Image, format: str = "PNG", optimize: bool = True, quality: int = 95) -> str:
     """Helper function to convert PIL Image to base64 string."""
     
     img_byte_arr = io.BytesIO()
@@ -213,18 +220,23 @@ def get_advance_chunk(base64_str: str, file_name: str, thread_id: str, file_id: 
                             api_version=os.getenv("AZURE_OPENAI_VERSION"),
                             max_tokens=4000)
 
-    prompt_template = """Extract all text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, and formatting.
+    prompt_template = """ You are Document scrapper who extract all the information from the given image.
+    
+    Extract all text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
 
-If there are any charts, graphs, or bar plots, describe each of them specifically and accurately. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and explain the data shown, including labels, axes, legends, and data values if visible.
+If there are any charts, graphs, or bar plots, describe each of them specifically and accurately. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and extract the data into table file foramte, including labels, axes, legends, and data values if visible.
 
 If there are tables present, extract them in Markdown table format, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
 
 If there are any random images (pictures unrelated to charts/graphs/tables), summarize them briefly in short paragraphs without adding any interpretation or assumption.
 
 Important Instructions:
+- Do not round any number.(Priority)
+- Convert the chart and graph data in form of table which we can use later for retrieval.
+- Do not miss any information.
 - Do not add anything beyond the information visible in the image.
 - Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
-- Extract and organize everything systematically: Headings > Full extracted text > Tables (Markdown format) > Graphs/Charts Description > Other Images Summary.
+- Extract and organize everything systematically: Headings > Full extracted text > Tables (Markdown format) > Graphs/Charts Description .
 
 Focus on precision and completeness in extraction. """
     
@@ -250,6 +262,165 @@ Focus on precision and completeness in extraction. """
             summary = chain.invoke({})
             logging.info(f"Successfully processed image {idx+1}/{len(images)}")
             return idx, summary
+            
+        except Exception as e:
+            error_msg = f"Error processing image {idx+1}: {str(e)}"
+            logging.error(error_msg)
+            # Return error message as the summary for this image
+            return idx, f"Error processing this image: {str(e)}"
+    
+    image_summaries = [None] * len(images)  
+    
+    # Create a list of (index, image) tuples for processing
+    indexed_images = list(enumerate(images))
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        future_to_image = {executor.submit(process_single_image, img_data): img_data for img_data in indexed_images}
+        
+        for future in concurrent.futures.as_completed(future_to_image):
+            try:
+                idx, summary = future.result()
+                image_summaries[idx] = summary  
+            except Exception as e:
+                img_data = future_to_image[future]
+                idx = img_data[0]
+                logging.error(f"Unexpected error with image {idx+1}: {str(e)}")
+                image_summaries[idx] = f"Unexpected error: {str(e)}"
+    
+    # Add image summaries
+    img_ids = [str(uuid.uuid4()) for _ in images]
+    summary_img = [
+        Document(page_content=summary, 
+                 metadata={
+                     "doc_id": img_ids[i], 
+                     "thread_id": thread_id, 
+                     "file_id": file_id, 
+                     "file_name": file_name,
+                     "page_number": i + 1,
+                     "type": "image"
+                     }
+                 ) for i, summary in enumerate(image_summaries)
+    ]
+    
+    try:
+        text_chunks = []
+        # text_splitter = RecursiveCharacterTextSplitter(
+        #     chunk_size=1000,
+        #     chunk_overlap=100,
+        #     length_function=len,
+        #     separators=["\n\n", "\n", ". ", " ", ""]
+        # )
+        
+        # for i, full_text in enumerate(extracted_texts):
+        #     if not full_text:
+        #         continue
+            
+        #     chunks = text_splitter.split_text(full_text)
+            
+        #     # Create a document for each chunk
+        #     for j, chunk in enumerate(chunks):
+        #         if not chunk.strip():
+        #             continue
+                    
+        #         text_chunk_id = str(uuid.uuid4())
+        #         text_chunks.append(
+        #             Document(page_content=chunk.strip().replace("\n", ""),
+        #                     metadata={
+        #                         "doc_id": text_chunk_id,
+        #                         "thread_id": thread_id,
+        #                         "file_id": file_id,
+        #                         "file_name": file_name,
+        #                         "page_number": i + 1,
+        #                         "chunk_number": j + 1,
+        #                         "type": "text"
+        #                     })
+        #         )
+                
+        # overall_summary = summary_img + text_chunks
+                
+        overall_summary = summary_img
+                
+                
+    except Exception as e:
+        logging.info("Skipping text extraction")
+        overall_summary = summary_img
+    
+    return {
+        "overall_summary": overall_summary
+    }
+    
+
+def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, file_id: str, file_type: str, extension: str) -> dict:
+    start_time = time.time()
+    # pdf_file = base64_to_file_object(base64_str)
+    chunks_base64_list = split_document_to_image_base64_pages(base64_str, file_type, extension)
+    logging.info(f"\nTime taken to split pdf to image: {time.time() - start_time}\n")
+
+    # Extract text directly from PDF
+    # try :
+    #     extracted_texts = extract_text_from_base64(base64_str=base64_str, file_type=file_type, extension=extension)
+    #     logging.info(f"Successfully extracted text from {len(extracted_texts)} pages")
+        
+    # except :
+    #     logging.info("Error extracting text from document")
+
+    images = chunks_base64_list
+
+    # model = AzureChatOpenAI(model="gpt-4o-mini",
+    #                         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    #                         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    #                         api_version=os.getenv("AZURE_OPENAI_VERSION"),
+    #                         max_tokens=4000)
+
+    prompt_template = """ You are Document scrapper who extract the information from the given image.
+    
+Extract text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
+
+If there are any charts, graphs, or bar plots, describe each of them specifically and accurately in short. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and extract the data into table file foramte, including labels, axes, legends, and data values if visible.
+
+If there are tables present, extract them in Markdown table format, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
+
+If there are any random images (pictures unrelated to charts/graphs/tables), summarize them in short paragraphs without adding any interpretation or assumption)
+
+Important Instructions:
+- Do not round any number.(Priority)
+- Convert the chart and graph data in form of table which we can use later for retrieval.
+- Do not miss any information.
+- Do not add anything beyond the information visible in the image.
+- Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
+- Extract and organize everything systematically: Headings > Full extracted text > Tables (Markdown format) > Graphs/Charts Description .
+
+
+Focus on precision and completeness in extraction. """
+    
+    def process_single_image(image_data: Tuple[int, str]) -> Tuple[int, str]:
+        """Process a single image and return its index and summary"""
+        idx, image = image_data
+        try:
+            messages =  [
+                prompt_template,  # Text part
+                Part.from_data(
+                    data=image,  # Raw bytes, not base64
+                    mime_type="image/jpeg",
+                ),
+            ]
+            
+            MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL")
+            
+            generation_config = {
+                    "max_output_tokens": 3000, 
+                }
+                            
+            model = GenerativeModel(MEDIA_ANALYSIS_MODEL)
+            response = model.generate_content(messages, generation_config=generation_config)
+            result = ""
+            result = response.text
+
+            # prompt = ChatPromptTemplate.from_messages(messages)
+            # chain = prompt | model | StrOutputParser()
+            # summary = chain.invoke({})
+            logging.info(f"Successfully processed image {idx+1}/{len(images)}")
+            return idx, result
             
         except Exception as e:
             error_msg = f"Error processing image {idx+1}: {str(e)}"
