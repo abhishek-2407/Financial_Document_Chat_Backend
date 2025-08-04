@@ -117,7 +117,7 @@ def split_document_to_image_base64_pages(base64_doc: str, file_type :str, extens
         
     return pages_base64
 
-def _convert_pdf_to_images(pdf_bytes: bytes, dpi: int = 300, max_workers: int = 100) -> List[str]:
+def _convert_pdf_to_images(pdf_bytes: bytes, dpi: int = 200, max_workers: int = 50) -> List[str]:
     """Convert PDF pages to images."""
     
     def process_page(page):
@@ -149,7 +149,7 @@ def _convert_pdf_to_images(pdf_bytes: bytes, dpi: int = 300, max_workers: int = 
     
     return pages_base64
 
-def _convert_image_to_base64(img: Image.Image, format: str = "PNG", optimize: bool = True, quality: int = 95) -> str:
+def _convert_image_to_base64(img: Image.Image, format: str = "PNG", optimize: bool = True, quality: int = 85) -> str:
     """Helper function to convert PIL Image to base64 string."""
     
     img_byte_arr = io.BytesIO()

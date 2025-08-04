@@ -26,3 +26,5 @@ python-jose
 
 weasyprint
 markdown
+
+vertexai
