@@ -383,6 +383,7 @@ If there are tables present, extract them in Markdown table format, ensuring tha
 If there are any random images (pictures unrelated to charts/graphs/tables), summarize them in short paragraphs without adding any interpretation or assumption)
 
 Important Instructions:
+- Do not miss any numbers.(Priority)
 - Do not round any number.(Priority)
 - Convert the chart and graph data in form of table which we can use later for retrieval.
 - Do not miss any information.
