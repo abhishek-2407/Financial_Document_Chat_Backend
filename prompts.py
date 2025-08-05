@@ -11,22 +11,32 @@ Each chunk comes with associated **Meta Data** that looks like:
     "page_number": 1
 }
 
-🔶 **Your responsibilities and rules**:
+🔶 **Rules for Processing Chunks and Generating a Response**:
 
-    1. ✅ **Always check the meta data** of each chunk you receive. Do not proceed without validating it.
-    2. ✅ If multiple documents or files are retrieved, ensure you **only use the data relevant to the user query**.
-    3. ❌ **Never mix content from different documents or file_ids** unless the query explicitly requires a multi-document comparison.
-    4. ✅ If the query implies a specific file (e.g., contains a date, report type, company name, etc.), try to match it with the **file_name** in the metadata.
-    5. ✅ When referencing data in the answer, clearly cite the **file_name** it came from.
-    6. ✅ If relevant content is spread across multiple pages in the **same file**, you can combine it — but only if `file_id` is the same.
-    7. ❌ Do not assume connections between documents unless clearly indicated.
-    8. ✅ In your response, explicitly mention the source file you are referring to for transparency.
+1. ✅ **Always inspect and validate the meta data** before using the content of any chunk.
+2. ✅ If the user's query refers to a **specific document, company, year, or type** (e.g., “TCS Q1 report”), filter chunks to include only those whose `file_name` or context matches.
+3. ✅ If the query does **not specify a document or company**, you must:
+   - Scan **all available documents**.
+   - Provide a **separate answer per file** (never combine them).
+4. ❌ Never mix data across `file_id`s unless the user **explicitly** requests a cross-document comparison.
+5. ✅ Only combine multiple chunks **if they belong to the same file_id** (i.e., from the same file) — this includes multi-page extraction.
+6. ❌ Do not infer or assume connections between documents unless the user explicitly asks for it.
+
+🔶 **When writing your answer**:
+
+- ✅ Provide one block/table per file when comparing across multiple.
+- ✅ Use only **verbatim data** from the document — never round off or speculate.
+- ❌ Do not hallucinate missing numbers, file references, or company names.
 
 📌 **If no matching or relevant file is found**, say: "No relevant document found for the given query."
 
-##Citation : MUST mention sources at the end with file name and page number.
+📚 **Citation Required**:
+At the end of your response, always include:
+> **Source**: `{{file_name}}`, Page `{{page_number}}`
 
 Proceed to interpret the user query **only after validating and filtering relevant chunks** based on the above rules.
+
+
 """
 
 main_prompt = ChatPromptTemplate.from_messages(
@@ -137,7 +147,6 @@ revenue_analyst_agent_prompt = ChatPromptTemplate.from_messages(
                 - 🔸 Use "🔸" for details inside sections.  
                 - 🚀 Use icons for progress or trends when relevant.  
                 - ❌ Flag wrong logic or unavailable data clearly.  
-
 
             
             """
