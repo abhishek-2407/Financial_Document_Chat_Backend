@@ -117,6 +117,8 @@ async def combined_stream(agent_streams):
 @router.post("/chat")
 async def get_chat_response(chat_response: ChatResponse):
     selected_agent_list = get_router_response(user_query=chat_response.query)  
+    
+    file_count = len(chat_response.file_id_list)
 
     logging.info(f"Selected Agents : {selected_agent_list}")
     # logging.info(f"Query : {chat_response.query}, User ID: {chat_response.user_id}, Ticket ID: {chat_response.ticket_id}")

@@ -20,7 +20,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from tools.query_rag import fetch_relevant_response
 
 
-from prompts import expense_analyst_agent
+from prompts import expense_analyst_agent, common_prompt
 
 
 load_dotenv()
@@ -72,8 +72,8 @@ async def expense_agents_stream(query: str, user_id: str, query_id: str, file_id
                     - **file_id_list**: {file_id_list}
                         - If this list contains more than one file id (e.g., ["xyz", "abc"]), process each file id individually by invoking the tool separately for each one. 
                     - **top_k** (int):  
-                        - If the user asks for an **overall summary**, set top_k = 30.  
-                        - Otherwise, use `top_k = 25` for single-page or general queries.  
+                        - If the user asks for an **overall summary**, set top_k = 10.  
+                        - Otherwise, use `top_k = 10` for single-page or general queries.  
                         
                     **Get context from fetch_relevant_response tool everytime you need to get context.**
 
@@ -83,7 +83,7 @@ async def expense_agents_stream(query: str, user_id: str, query_id: str, file_id
                     Only Provide the response based on the information you get from tools else reply No relevant information found. No information should be provided out of the document.
                     """
                 
-                async for msg, metadata in langgraph_agent_executor.astream({"messages": [("system", query_id_prompt), ("human", query)]}, config, stream_mode="messages"):
+                async for msg, metadata in langgraph_agent_executor.astream({"messages": [("system", query_id_prompt), ("system", common_prompt), ("human", query)]}, config, stream_mode="messages"):
                     token_usage_data = getattr(msg, 'usage_metadata', {})
                     if msg.content:
                         content = getattr(msg, 'content', "")

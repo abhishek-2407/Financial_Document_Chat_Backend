@@ -16,9 +16,10 @@ def get_router_response(user_query: str) -> str:
     - calculation_agent: Handles numerical computations, derived financial metrics, or any query requiring calculations. Only used this if user asked to calculate.
     - general_agent: Handles general Q&A, recommendations, clarifications, or queries. Also Use this when no other category fits.
 
+
     Return your output in the following format (JSON list of objects):
     [ 
-        { "agent": "agent_name", "prompt": "User prompt- Do not add anything extra or change the query" }, as many as needed.
+        { "agent": "agent_name", "prompt": "User prompt : same user_query" }, as many as needed.
     ]
 
     Examples:
@@ -26,11 +27,6 @@ def get_router_response(user_query: str) -> str:
     Input: "Compare the revenue performance of Q1 2023 and Q1 2024"
     Output: [ 
     { "agent": "comparative_analysis", "prompt": "Compare revenue performance between Q1 2023 and Q1 2024." } 
-    ]
-
-    Input: "What were the total marketing expenses last year?"
-    Output: [ 
-    { "agent": "expense_analyst", "prompt": "Analyze and report total marketing expenses for the last fiscal year." } 
     ]
 
     Input: "Summarize the key points from the 2023 annual report"
