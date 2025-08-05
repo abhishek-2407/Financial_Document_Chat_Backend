@@ -83,7 +83,7 @@ async def calculation_agents_stream(query: str, user_id: str, query_id: str, fil
                     Only Provide the response based on the information you get from tools else reply No relevant information found. No information should be provided out of the document.
                     """
                 
-                async for msg, metadata in langgraph_agent_executor.astream({"messages": [("system", query_id_prompt), ("system", common_prompt), ("human", query)]}, config, stream_mode="messages"):
+                async for msg, metadata in langgraph_agent_executor.astream({"messages": [("system", query_id_prompt), ("human", query), ("system", common_prompt)]}, config, stream_mode="messages"):
                     token_usage_data = getattr(msg, 'usage_metadata', {})
                     if msg.content:
                         content = getattr(msg, 'content', "")
@@ -179,7 +179,7 @@ async def doc_agents_chat(query: str, user_id: str, query_id: str, file_id_list 
                     """
                                         
                 res = await langgraph_agent_executor.ainvoke(
-                                {"messages": [("system", query_id_prompt), ("system", common_prompt), ("human", f"user_query : {query}")]}, config
+                                {"messages": [("system", query_id_prompt), ("human", f"user_query : {query}"),  ("system", common_prompt)]}, config
                             )       
                          
                 token_usage = res["messages"][-1].response_metadata["token_usage"]

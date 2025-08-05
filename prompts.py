@@ -219,7 +219,6 @@ expense_analyst_agent = ChatPromptTemplate.from_messages(
             - If Data is not available then Reply with "No relevant information for the mentioned query"
             - Always keep the numbers same as mentioned in the document. Must avoid rounding off any number.
                 
-        {common_prompt}
 
         """
         ),
@@ -270,7 +269,6 @@ calculation_agent_prompt = ChatPromptTemplate.from_messages(
                 ✅ It supports multiple formats.  
                 ❌ It does not work with outdated versions.  
                 
-            {common_prompt}
 
     """,
         ),
