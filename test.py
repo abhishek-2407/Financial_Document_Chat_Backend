@@ -1,13 +1,7 @@
-import ollama
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-model_name = "gemma3:1b"
-# Define the user input prompt
-
-prompt = "hi"
-# Run the model and get a response
-
-response = ollama.chat(model=model_name, messages=[{"role": "user", "content": prompt}])
-
-# Print the response
-print("AI Response:", response["message"]["content"])
+now_india = datetime.now(ZoneInfo("Asia/Kolkata"))
+formatted_date = now_india.strftime("%d-%b-%Y")
+print(formatted_date)
 

@@ -1,43 +1,71 @@
 from langchain_core.prompts import ChatPromptTemplate
-
-common_prompt = """
-
-Each chunk comes with associated **Meta Data** that looks like:
-{
-    "doc_id": "UUID",
-    "thread_id": "ID",
-    "file_id": "ID",
-    "file_name": "folder_id/subfolder_id/filename" (Pick the last part - filename),
-    "page_number": 1
-}
-
-🔶 **Rules for Processing Chunks and Generating a Response**:
-
-1. ✅ **Always inspect and validate the meta data** before using the content of any chunk.
-2. ✅ If the user's query refers to a **specific document, company, year, or type** (e.g., “TCS Q1 report”), filter chunks to include only those whose `file_name` or context matches.
-3. ✅ If the query does **not specify a document or company**, you must:
-   - Scan **all available documents**.
-   - Provide a **separate answer per file** (never combine them).
-4. ❌ Never mix data across `file_id`s unless the user **explicitly** requests a cross-document comparison.
-5. ✅ Only combine multiple chunks **if they belong to the same file_id** (i.e., from the same file) — this includes multi-page extraction.
-6. ❌ Do not infer or assume connections between documents unless the user explicitly asks for it.
-
-🔶 **When writing your answer**:
-
-- ✅ Provide one block/table per file when comparing across multiple.
-- ✅ Use only **verbatim data** from the document — never round off or speculate.
-- ❌ Do not hallucinate missing numbers, file references, or company names.
-
-📌 **If no matching or relevant file is found**, say: "No relevant document found for the given query."
-
-📚 **Citation Required**:
-At the end of your response, always include:
-> **Source**: `{{file_name}}`, Page `{{page_number}}`
-
-Proceed to interpret the user query **only after validating and filtering relevant chunks** based on the above rules.
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
-"""
+
+def common_prompt_func():
+    
+    now_india = datetime.now(ZoneInfo("Asia/Kolkata"))
+    current_date_month_year = now_india.strftime("%d-%b-%Y")
+    print(current_date_month_year)
+    
+    meta_data = """{
+        "doc_id": "ID or String",
+        "thread_id": "ID or String",
+        "file_id": "ID",
+        "file_name": "folder_id/subfolder_id/filename" (Pick the last part - filename),
+        "page_number": 1
+    }"""
+
+    common_prompt = f"""
+
+    Each chunk comes with associated **Meta Data** that looks like:
+    {meta_data}
+
+    🔶 **Rules for Processing Chunks and Generating a Response**:
+
+    1. ✅ **Always inspect and validate the meta data** before using the content of any chunk.
+    2. ✅ If the user's query refers to a **specific document, company, year, or type** (e.g., “TCS Q1 report”), filter chunks to include only those whose `file_name` or context matches.
+    3. ✅ If the query does **not specify a document or company**, you must:
+    - Scan **all available documents**.
+    - Provide a **separate answer per file** (never combine them).
+    4. ❌ Never mix data across `file_id`s unless the user **explicitly** requests a cross-document comparison.
+    5. ✅ Only combine multiple chunks **if they belong to the same file_id** (i.e., from the same file) — this includes multi-page extraction.
+    6. ❌ Do not infer or assume connections between documents unless the user explicitly asks for it.
+    7. Must Take care of Consolidated and Standalone Data. Do not mix them.
+    
+    🔶 **Time, location and quarter Rules**:
+    - Must refer to the Current Date for comparision : {current_date_month_year}
+    - In India Financial year id from April to March :
+        **Quarter 1 - April, May, June**
+        **Quarter 2 - July, August, September**
+        **Quarter 3 - October, November, December**
+        **Quarter 4 - January, February, March**
+        
+      Refer this for better understanding.
+      
+    🔶 **Financial Term Prioritization**:
+    - QoQ : Quarter over Quarter -> Needs to compare previous quarter with Present only.
+    - YoY : Year over year -> Needs to compare previous year with Present only.
+
+    🔶 **When writing your answer**:
+
+    - ✅ Provide one block/table per file when comparing across multiple.
+    - ✅ Use only **verbatim data** from the document — never round off or speculate.
+    - ❌ Do not hallucinate missing numbers, file references, or company names.
+
+    📌 **If no matching or relevant file is found**, say: "No relevant document found for the given query."
+
+    📚 **Citation Required**:
+    At the end of your response, always include:
+    > **Source**: `{{file_name}}`, Page `{{page_number}}`
+
+    Proceed to interpret the user query **only after validating and filtering relevant chunks** based on the above rules.
+
+    """
+    
+    return common_prompt
 
 main_prompt = ChatPromptTemplate.from_messages(
     [
@@ -429,7 +457,6 @@ summary_agent_prompt = ChatPromptTemplate.from_messages(
                     ❌ It does not work with outdated versions.  
 
 
-                Focus on providing the most valuable insights from the available information rather than rigidly following a template.
         """,
         ),
         ("placeholder", "{messages}"),

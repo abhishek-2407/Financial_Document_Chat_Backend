@@ -20,7 +20,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from tools.query_rag import fetch_relevant_response
 
 
-from prompts import general_agent_prompt,common_prompt
+from prompts import general_agent_prompt,common_prompt_func
 
 
 load_dotenv()
@@ -82,6 +82,8 @@ async def general_agents_stream(query: str, user_id: str, query_id: str, file_id
                     
                     Only Provide the response based on the information you get from tools else reply No relevant information found. No information should be provided out of the document.
                     """
+                    
+                common_prompt = common_prompt_func()
                 
                 async for msg, metadata in langgraph_agent_executor.astream({"messages": [("system", query_id_prompt), ("human", query), ("system", common_prompt)]}, config, stream_mode="messages"):
                     token_usage_data = getattr(msg, 'usage_metadata', {})
