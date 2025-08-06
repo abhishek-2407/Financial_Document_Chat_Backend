@@ -4,68 +4,90 @@ from zoneinfo import ZoneInfo
 
 
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 def common_prompt_func():
-    
     now_india = datetime.now(ZoneInfo("Asia/Kolkata"))
     current_date_month_year = now_india.strftime("%d-%b-%Y")
-    print(current_date_month_year)
-    
+
     meta_data = """{
-        "doc_id": "ID or String",
-        "thread_id": "ID or String",
+        "doc_id": "UUID",
+        "thread_id": "ID",
         "file_id": "ID",
-        "file_name": "folder_id/subfolder_id/filename" (Pick the last part - filename),
+        "file_name": "folder_id/subfolder_id/filename"  // Use only the filename part
         "page_number": 1
     }"""
 
     common_prompt = f"""
+Each document chunk is accompanied by the following **meta data**:
+{meta_data}
 
-    Each chunk comes with associated **Meta Data** that looks like:
-    {meta_data}
+---
 
-    🔶 **Rules for Processing Chunks and Generating a Response**:
+🔶 **Processing & Filtering Rules**:
 
-    1. ✅ **Always inspect and validate the meta data** before using the content of any chunk.
-    2. ✅ If the user's query refers to a **specific document, company, year, or type** (e.g., “TCS Q1 report”), filter chunks to include only those whose `file_name` or context matches.
-    3. ✅ If the query does **not specify a document or company**, you must:
-    - Scan **all available documents**.
-    - Provide a **separate answer per file** (never combine them).
-    4. ❌ Never mix data across `file_id`s unless the user **explicitly** requests a cross-document comparison.
-    5. ✅ Only combine multiple chunks **if they belong to the same file_id** (i.e., from the same file) — this includes multi-page extraction.
-    6. ❌ Do not infer or assume connections between documents unless the user explicitly asks for it.
-    7. Must Take care of Consolidated and Standalone Data. Do not mix them.
-    
-    🔶 **Time, location and quarter Rules**:
-    - Must refer to the Current Date for comparision : {current_date_month_year}
-    - In India Financial year id from April to March :
-        **Quarter 1 - April, May, June**
-        **Quarter 2 - July, August, September**
-        **Quarter 3 - October, November, December**
-        **Quarter 4 - January, February, March**
-        
-      Refer this for better understanding.
-      
-    🔶 **Financial Term Prioritization**:
-    - QoQ : Quarter over Quarter -> Needs to compare previous quarter with Present only.
-    - YoY : Year over year -> Needs to compare previous year with Present only.
+1. ✅ Always **validate meta data** before processing content.
+2. ✅ If the user's query mentions a **specific company, quarter, year, or file**, only use chunks whose `file_name` or content clearly match.
+3. ✅ If no specific reference is made:
+   - Search **all available documents**.
+   - Provide a **distinct answer for each relevant file**. Do not merge content from multiple files.
+4. ❌ Never mix data across `file_id`s unless the user **explicitly asks** for a cross-file comparison.
+5. ✅ You may combine multiple chunks **only if they share the same `file_id`**, e.g., multi-page data from the same file.
+6. ❌ Do **not infer or assume** company names, dates, or context. Use only what is explicitly present.
+7. ✅ Distinguish between **Standalone** and **Consolidated** data — **never mix** the two.
+8. ✅ When dates or quarters are compared, use the current date as reference: **{current_date_month_year}**
 
-    🔶 **When writing your answer**:
+---
 
-    - ✅ Provide one block/table per file when comparing across multiple.
-    - ✅ Use only **verbatim data** from the document — never round off or speculate.
-    - ❌ Do not hallucinate missing numbers, file references, or company names.
+🔶 **Interpretation of Financial Terms**:
 
-    📌 **If no matching or relevant file is found**, say: "No relevant document found for the given query."
+- **QoQ (Quarter-over-Quarter)**:
+  - Must compare the current quarter with the **immediately previous quarter** (e.g., Q1 FY26 vs Q4 FY25).
+  - Do **not** compare with the same quarter in the previous year — that is a **YoY** comparison.
+  - If the previous quarter’s data is **not available**, clearly state:
+    > "Quarter-over-quarter comparison is not possible due to missing data for the previous quarter."
 
-    📚 **Citation Required**:
-    At the end of your response, always include:
-    > **Source**: `{{file_name}}`, Page `{{page_number}}`
+- **YoY (Year-over-Year)**:
+  - Must compare the current quarter with the **same quarter in the previous year** (e.g., Q1 FY26 vs Q1 FY25).
+  
+---
 
-    Proceed to interpret the user query **only after validating and filtering relevant chunks** based on the above rules.
+🔷 **India Financial Year & Quarter Mapping**:
+- **Q1**: April, May, June
+- **Q2**: July, August, September
+- **Q3**: October, November, December
+- **Q4**: January, February, March
 
+🕒 Always interpret quarters in the context of India's fiscal calendar unless otherwise stated.
+
+---
+
+🔷 **Answering Guidelines**:
+
+1. ✅ Answer separately per file (one block/table per document).
+2. ✅ Use only **verbatim data** from documents. Avoid rounding, estimating, or generating values.
+3. ❌ Do not hallucinate:
+   - Missing numbers
+   - Company names
+   - File references
+   - Interpretations not present in the source
+4. ✅ If no relevant content is found, respond with:
+   > **No relevant document found for the given query.**
+
+---
+
+📚 **Always add citation** at the end of your response:
+
+> **Source**: `{{file_name}}`, Page `{{page_number}}`
+
+---
+
+🔎 Proceed with answering **only after filtering relevant chunks** using the above rules.
     """
-    
+
     return common_prompt
+
 
 main_prompt = ChatPromptTemplate.from_messages(
     [

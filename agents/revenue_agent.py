@@ -29,7 +29,7 @@ model = AzureChatOpenAI(model="gpt-4o-mini",
                             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
                             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                             api_version=os.getenv("AZURE_OPENAI_VERSION"),
-                            max_tokens=4000)
+                            max_tokens=4000,temperature=0)
 
 def filter_messages(messages: list):
     return messages[-1:]
