@@ -18,6 +18,8 @@ from langchain_openai import AzureChatOpenAI
 from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from tools.query_rag import fetch_relevant_response
+from tools.fetch_consolidated import fetch_consolidated_data
+from tools.fetch_standalone import fetch_standalone_data
 
 
 from prompts import revenue_analyst_agent_prompt, common_prompt_func
@@ -25,7 +27,7 @@ from prompts import revenue_analyst_agent_prompt, common_prompt_func
 
 load_dotenv()
 
-model = AzureChatOpenAI(model="gpt-4o-mini",
+model = AzureChatOpenAI(model="gpt-4o",
                             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
                             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                             api_version=os.getenv("AZURE_OPENAI_VERSION"),
@@ -38,7 +40,7 @@ def _modify_state_messages(user_query: str):
     # messages = filter_messages(state["messages"])
     return revenue_analyst_agent_prompt.invoke({"messages": user_query})
 
-tools = [fetch_relevant_response]
+tools = [fetch_relevant_response, fetch_standalone_data, fetch_consolidated_data]
 
 async def revenue_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
     try:
