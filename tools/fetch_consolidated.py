@@ -31,32 +31,48 @@ async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: li
     📢 Note:
     Standalone or isolated values should be excluded unless part of the overall consolidated insight.
     """
-
     logging.info("Tool called : fetch_consolidated_data")
 
 
     try:
-        rag_response = await retrieve_chunks(user_query=consolidated_user_query, file_id_list=file_id_list, top_k=top_k)
+        rag_response = await retrieve_chunks(user_query=f"{consolidated_user_query} Consolidated", file_id_list=file_id_list, top_k=top_k)
 
         response = {
             "status_code": 200,
             "chunks": rag_response["chunks"],
         }
 
-        system_prompt = """You are an assistant that extracts only **consolidated data for the given user query.
+        system_prompt = """You are an assistant that extracts only **consolidated financial statements for the given user query.
 
         ## Instructions:
         - Only return **consolidated data** metrics.
-        - If you get any Standalone data then just Ignore it. Your response must only have **Consolidated** data from the document.
-        - Do not generate insights unless explicitly asked — stick to raw consolidated facts from the provided dataset.
+        - If you get any Standalone financial statements then just Ignore it. Your response must only have data from **consolidated financial statements** from the document.
+        - Do not generate insights unless explicitly asked — stick to raw consolidated financial statements from the provided dataset.
         
-        Just extract the consolidated data only from the document that agent can proceed ahead. 
+        Just extract the consolidated financial statements only from the document that agent can proceed ahead. 
+
+        The financial year in India runs from April 1 to March 31.
+        Example: FY05 refers to the period from April 1, 2004 to March 31, 2005.
+        Quarter breakdown:
+        Q1 FY05: Apr–Jun 2004
+        Q1 FY05: Jul–Sep 2004
+        Q2 FY05: Oct–Dec 2004
+        Q4 FY05: Jan–Mar 2005
 
         ## Response:
         - Provide the response in valid markdown format. Avoid additional commentary.
+
+📚 **Always add citation** at the end of your response:
+
+> **Source**: `{{file_name}}`, Page `{{page_number}}`
         """
 
-        extracted_chunks = response["chunks"]
+
+        extracted_chunks = [
+            chunk for chunk in rag_response["chunks"]
+            if "consolidated" in chunk.page_content.lower()
+        ]
+
         user_prompt = f"""
 
         Data : {extracted_chunks}

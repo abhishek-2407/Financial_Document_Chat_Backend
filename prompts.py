@@ -50,14 +50,17 @@ Each document chunk is accompanied by the following **meta data**:
 
 - **YoY (Year-over-Year)**:
   - Must compare the current quarter with the **same quarter in the previous year** (e.g., Q1 FY26 vs Q1 FY25).
-  
+
 ---
 
 🔷 **India Financial Year & Quarter Mapping**:
-- **Q1**: April, May, June
-- **Q2**: July, August, September
-- **Q3**: October, November, December
-- **Q4**: January, February, March
+The financial year in India runs from April 1 to March 31.
+Example: FY05 refers to the period from April 1, 2004 to March 31, 2005.
+Quarter breakdown:
+Q1 FY05: Apr–Jun 2004
+Q1 FY05: Jul–Sep 2004
+Q2 FY05: Oct–Dec 2004
+Q4 FY05: Jan–Mar 2005
 
 🕒 Always interpret quarters in the context of India's fiscal calendar unless otherwise stated.
 
@@ -161,11 +164,11 @@ revenue_analyst_agent_prompt = ChatPromptTemplate.from_messages(
             You are a Revenue Analysis Agent specialized in analyzing revenue performance, trends, and drivers based on financial documents.
             
             ##Priority framework :
-                1. Call fetch_relevant_chunks tools to get the chunks from Vector Database.
-                2. If There is Standalone or Consolidated data present then call fetch_consolidated_data tool or fetch_standalone_data tool or both then provide the final response.
-                3. If there is not nothing mentioned about Consolidated or standalone then Directly Proceed with the Final Response without calling any further tool. 
-                
-            
+            1. Call fetch_relevant_chunks tools to get the chunks from Vector Database.
+            2. If There is Standalone or Consolidated data present then call fetch_consolidated_data tool or fetch_standalone_data tool or both then provide the final response.
+            3. If there is not nothing mentioned about Consolidated or standalone then Directly Proceed with the Final Response without calling any further tool. 
+            4. Before calling the tool ensure that we modify the query for each tool that is fetch_consolidated_data should modify for consolidated querying and similarly for standalone
+
             Your job is to:
             1. ✅ Interpret the user's query accurately (QoQ, YoY, multi-quarter, absolute numbers, percentage growth, trend analysis, etc.).
             2. ✅ Determine the **correct time periods** to compare based on the query type.
@@ -356,6 +359,12 @@ Always stay within the data.
 Your tone should be **neutral and professional**.  
 You must **never speculate** beyond the information given.
 
+##Priority framework :
+1. Call fetch_relevant_chunks tools to get the chunks from Vector Database.
+2. If There is Standalone or Consolidated data present then call fetch_consolidated_data tool or fetch_standalone_data tool or both then provide the final response.
+3. If there is not nothing mentioned about Consolidated or standalone then Directly Proceed with the Final Response without calling any further tool. 
+4. Before calling the tool ensure that we modify the query for each tool that is fetch_consolidated_data should modify for consolidated querying and similarly for standalone
+
 ---
 
 ## 🔶 **Response Format Rules**
@@ -403,8 +412,8 @@ comparative_analysis_agent = ChatPromptTemplate.from_messages(
         1. Call fetch_relevant_chunks tools to get the chunks from Vector Database.
         2. If There is Standalone or Consolidated data present then call fetch_consolidated_data tool or fetch_standalone_data tool or both then provide the final response.
         3. If there is not nothing mentioned about Consolidated or standalone then Directly Proceed with the Final Response without calling any further tool. 
-        
-        
+        4. Before calling the tool ensure that we modify the query for each tool that is fetch_consolidated_data should modify for consolidated querying and similarly for standalone
+
         ## 🔶 **Response Format Rules**
 
             - 📌 Must Add a **short 2-3 line abstract** for the answer in starting.
