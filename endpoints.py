@@ -56,7 +56,7 @@ class ChatResponse(BaseModel):
     query : str
     user_id : str
     query_id : str
-    file_id_list : List[str]
+    file_id_list : List[Dict]
     stream : bool = False
     
     
@@ -116,7 +116,14 @@ async def combined_stream(agent_streams):
 
 @router.post("/chat")
 async def get_chat_response(chat_response: ChatResponse):
-    selected_agent_list = get_router_response(user_query=chat_response.query)  
+    
+    file_list = chat_response.file_id_list
+    logging.info("t1")
+    
+    for f in file_list:
+        f["file_name"] = f["file_name"].split("/")[-1]
+
+    selected_agent_list = get_router_response(user_query=chat_response.query, file_id_list=file_list)  
     
     file_count = len(chat_response.file_id_list)
 
@@ -129,6 +136,7 @@ async def get_chat_response(chat_response: ChatResponse):
         logging.info(f"Agent Name: {agent_info}")
         agent_name = agent_info["agent"]
         agent_prompt = agent_info["prompt"]
+        agent_file_id = agent_info["file_id"]
 
         if not agent_name or not agent_prompt:
             logging.warning(f"Invalid agent info: {agent_info}")
@@ -141,7 +149,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
         elif agent_name == "expense_analyst":
@@ -149,7 +157,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
         elif agent_name == "comparative_analysis":
@@ -157,7 +165,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
             
         elif agent_name == "general_agent":
@@ -165,7 +173,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
         elif agent_name == "summary_agent":
@@ -173,7 +181,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
         elif agent_name == "calculation_agent":
@@ -181,7 +189,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
     if not agent_streams:

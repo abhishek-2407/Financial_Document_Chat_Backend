@@ -24,9 +24,9 @@ Each document chunk is accompanied by the following **meta data**:
 {meta_data}
 
 ---
+Must Including a heading with company name in start of response.
 
 🔶 **Processing & Filtering Rules**:
-
 1. ✅ Distinguish between **Standalone** and **Consolidated** data — **never mix** the two. In case of Ambiguity provide both the data.
 2. ✅ Always **validate meta data** before processing content.
 3. ✅ If the user's query mentions a **specific company, quarter, year, or file**, only use chunks whose `file_name` or content clearly match.
@@ -36,8 +36,8 @@ Each document chunk is accompanied by the following **meta data**:
 5. ❌ Never mix data across `file_id`s unless the user **explicitly asks** for a cross-file comparison.
 6. ✅ You may combine multiple chunks **only if they share the same `file_id`**, e.g., multi-page data from the same file.
 7. ❌ Do **not infer or assume** company names, dates, or context. Use only what is explicitly present.
-8. ✅ When dates or quarters are compared, use the current date as reference: **{current_date_month_year}**
-
+8. ✅ Use this for current date as reference: **{current_date_month_year}**
+9, Always Prefer Giving 5 Latest numbers, untill asked specific.
 ---
 
 🔶 **Interpretation of Financial Terms**:
@@ -58,8 +58,8 @@ The financial year in India runs from April 1 to March 31.
 Example: FY05 refers to the period from April 1, 2004 to March 31, 2005.
 Quarter breakdown:
 Q1 FY05: Apr–Jun 2004
-Q1 FY05: Jul–Sep 2004
-Q2 FY05: Oct–Dec 2004
+Q2 FY05: Jul–Sep 2004
+Q3 FY05: Oct–Dec 2004
 Q4 FY05: Jan–Mar 2005
 
 🕒 Always interpret quarters in the context of India's fiscal calendar unless otherwise stated.
@@ -200,11 +200,7 @@ revenue_analyst_agent_prompt = ChatPromptTemplate.from_messages(
             - Stay concise, accurate, and to-the-point.
 
             -- ✅ **Emoji Formatting Rules:**  
-                - H2 headings should be marked using ##.  
                 - ✅ Use checkmarks (✅) for insights or key data points.  
-                - 🔶 Use "🔶" for big category headers.  
-                - 🔸 Use "🔸" for details inside sections.  
-                - 🚀 Use icons for progress or trends when relevant.  
                 - ❌ Flag wrong logic or unavailable data clearly.  
 
             
@@ -259,20 +255,9 @@ expense_analyst_agent = ChatPromptTemplate.from_messages(
 
       
         --Response Guideline 2: ✅ **Emoji Formatting Rules:**  
-            - First heading should be h2 font.
             - ✅ Use checkmarks (✅) for key points and important statements.  
-            - 🔶 Use "🔶" at the start of **big headings**.  
-            - 🔸 Use "🔸" at the start of **smaller headings**.  
-            - 🚀 Use additional relevant emojis to make responses engaging.  
             - ❌ Use "❌" for incorrect statements or warnings.  
-
-            ✅ **Example Response Structure:**  
-            🔶 **Overview**  
-            ✅ This feature helps improve performance.  
-
-            🔸 **Key Details**  
-            ✅ It supports multiple formats.  
-            ❌ It does not work with outdated versions.  
+ 
             
             
         ## 🔶 **Response Format Rules**
@@ -322,21 +307,10 @@ calculation_agent_prompt = ChatPromptTemplate.from_messages(
                 
             
             --Response Guideline 2: ✅ **Emoji Formatting Rules:**  
-                - First heading should be H2 font.
                 - ✅ Use checkmarks (✅) for key points and important statements.  
-                - 🔶 Use "🔶" at the start of **big headings**.  
-                - 🔸 Use "🔸" at the start of **smaller headings**.  
-                - 🚀 Use additional relevant emojis to make responses engaging.  
                 - ❌ Use "❌" for incorrect statements or warnings.  
 
-                ✅ **Example Response Structure:**  
-                🔶 **Overview**  
-                ✅ This feature helps improve performance.  
 
-                🔸 **Key Details**  
-                ✅ It supports multiple formats.  
-                ❌ It does not work with outdated versions.  
-                
 
     """,
         ),
@@ -382,11 +356,8 @@ You must **never speculate** beyond the information given.
 ---
 
 ## ✅ **Emoji Formatting Rules**
-- 🔶 Use for **big headings**
-- 🔸 Use for **sub-headings**
 - ✅ Use for **key positive findings**
 - ❌ Use for **negative findings or risks**
-- 🚀 Use sparingly for strong upside or momentum
 - Do not add any other emojis beyond these.
 
 ---
@@ -427,21 +398,9 @@ comparative_analysis_agent = ChatPromptTemplate.from_messages(
             - Always keep the numbers same as mentioned in the document. Must avoid rounding off any number.
         
         ## Response Guideline 2: ✅ **Emoji Formatting Rules:**  
-            - First heading should be H2 font
-            - ✅ Use checkmarks (✅) for key points and important statements.  
-            - 🔶 Use "🔶" at the start of **big headings**.  
-            - 🔸 Use "🔸" at the start of **smaller headings**.  
-            - 🚀 Use additional relevant emojis to make responses engaging.  
+            - ✅ Use checkmarks (✅) for key points and important statements.   
             - ❌ Use "❌" for incorrect statements or warnings.  
 
-            ✅ **Example Response Structure:**  
-            🔶 **Overview**  
-            ✅ This feature helps improve performance.  
-
-            🔸 **Key Details**  
-            ✅ It supports multiple formats.  
-            ❌ It does not work with outdated versions.  
-            
             
         """,
         ),
@@ -482,20 +441,8 @@ summary_agent_prompt = ChatPromptTemplate.from_messages(
                 
 
                 --Response Guideline 2: ✅ **Emoji Formatting Rules:**  
-                    - First heading should be H2 font
-                    - ✅ Use checkmarks (✅) for key points and important statements.  
-                    - 🔶 Use "🔶" at the start of **big headings**.  
-                    - 🔸 Use "🔸" at the start of **smaller headings**.  
-                    - 🚀 Use additional relevant emojis to make responses engaging.  
+                    - ✅ Use checkmarks (✅) for key points and important statements.   
                     - ❌ Use "❌" for incorrect statements or warnings.  
-
-                    ✅ **Example Response Structure:**  
-                    🔶 **Overview**  
-                    ✅ This feature helps improve performance.  
-
-                    🔸 **Key Details**  
-                    ✅ It supports multiple formats.  
-                    ❌ It does not work with outdated versions.  
 
 
         """,
