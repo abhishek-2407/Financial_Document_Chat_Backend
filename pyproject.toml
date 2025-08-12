@@ -1,0 +1,38 @@
+[project]
+name = "financial-document-chat-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "bcrypt>=4.3.0",
+    "boto3>=1.40.0",
+    "botocore>=1.40.0",
+    "fastapi[all]>=0.116.1",
+    "langchain>=0.3.27",
+    "langchain-experimental>=0.3.4",
+    "langchain-ollama>=0.3.6",
+    "langchain-openai>=0.3.28",
+    "langchain-qdrant>=0.2.0",
+    "langgraph>=0.6.2",
+    "langgraph-checkpoint-postgres>=2.0.23",
+    "markdown>=3.8.2",
+    "opencv-python>=4.12.0.88",
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.1",
+    "pdf2image>=1.17.0",
+    "psycopg>=3.2.9",
+    "psycopg-pool>=3.2.6",
+    "psycopg2-binary>=2.9.10",
+    "pymupdf>=1.26.3",
+    "pypdf2>=3.0.1",
+    "python-dotenv>=1.1.1",
+    "python-jose>=3.5.0",
+    "qdrant-client>=1.15.1",
+    "rich>=14.1.0",
+    "s3fs>=0.4.2",
+    "sqlalchemy>=2.0.42",
+    "transformers>=4.54.1",
+    "vertexai>=1.71.1",
+    "weasyprint>=66.0",
+]
