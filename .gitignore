@@ -9,3 +9,4 @@ vnvvv
 local_vector_db
 *.json
 *.ipynb
+postgres_data
