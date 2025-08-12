@@ -14,7 +14,7 @@ from utils.db import engine, get_db
 router = APIRouter()
 
 class UserS3MappingMinimalSchema(BaseModel):
-    id: str
+    file_id: str
     file_name: str
 
     class Config:
@@ -33,15 +33,16 @@ class TestCaseSchema(BaseModel):
 @router.get("/", response_model=List[TestCaseSchema])
 async def get_files(session: Session = Depends(get_db)):
     response = session.execute(select(TestCase)).scalars().all()
-    # for res in response:
-        # data = session.execute(select(UserS3Mapping).where(UserS3Mapping.id.in_(file for file in TestCase.file_id_list))).scalars().all()
-        # print(data)
-        # res.files = [
-        #     UserS3MappingMinimalSchema(
-        #         id=str(file.id),
-        #         file_name=str(file.file_name),
-        #     ) for file in data
-        # ]
+    for res in response:
+        logging.info(res.file_id_list)
+        data = session.execute(select(UserS3Mapping).where(UserS3Mapping.file_id.in_(str(file) for file in res.file_id_list))).scalars().all()
+        logging.info(data)
+        res.files = [
+            UserS3MappingMinimalSchema(
+                file_id=str(file.file_id),
+                file_name=str(file.file_name),
+            ) for file in data
+        ]
     return response
 
 class TestCaseCreate(BaseModel):
