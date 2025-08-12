@@ -6,6 +6,8 @@ import enum
 
 import uuid
 
+from sqlalchemy.orm import relationship
+
 Base = declarative_base()
 
 class UserS3Mapping(Base):
@@ -70,3 +72,27 @@ class FileAttribute(Base):
     generated_section = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
    
+class TestCase(Base):
+    __tablename__ = 'test_cases'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    file_id_list = Column(JSON, nullable=False)
+    prompt = Column(String, nullable=False)
+    expected_output = Column(String, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class TestCaseResults(Base):
+    __tablename__ = 'test_cases_results'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    file_id_list = Column(JSON, nullable=False)
+    prompt = Column(String, nullable=False)
+    expected_output = Column(String, nullable=False)
+
+    llm_response = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+

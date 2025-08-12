@@ -5,6 +5,7 @@ import logging
 import uvicorn
 from dotenv import load_dotenv
 
+from testcases_endpoints import router as testcases_router
 from utils.db import Base, engine
 from endpoints import router as DocEval
 from authorization_endpoints import router as auth_router
@@ -31,6 +32,7 @@ app.add_middleware(
 
 app.include_router(DocEval, prefix="/doc-eval", tags=["Document Evaluation APIs"])
 app.include_router(auth_router, prefix="/auth", tags=["Auth APIs"])
+app.include_router(testcases_router, prefix="/testcases", tags=["Testcases"])
 
 @app.get("/health-check/", status_code=status.HTTP_200_OK)
 async def health_check(request: Request):
