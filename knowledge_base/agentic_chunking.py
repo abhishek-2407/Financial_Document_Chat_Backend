@@ -21,7 +21,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from PIL import Image
-from vertexai.generative_models import GenerativeModel, Part
+from vertexai.generative_models import GenerationConfig, GenerativeModel, Part
 import vertexai
 
 from pdf2image import convert_from_bytes
@@ -408,9 +408,9 @@ Focus on precision and completeness in extraction. """
             
             MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL")
             
-            generation_config = {
-                    "max_output_tokens": 3000, 
-                }
+            generation_config = GenerationConfig(
+                max_output_tokens=3000,
+            )
                             
             model = GenerativeModel(MEDIA_ANALYSIS_MODEL)
             response = model.generate_content(messages, generation_config=generation_config)
