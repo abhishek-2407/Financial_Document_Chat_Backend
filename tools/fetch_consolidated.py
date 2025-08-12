@@ -55,8 +55,8 @@ async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: li
         Example: FY05 refers to the period from April 1, 2004 to March 31, 2005.
         Quarter breakdown:
         Q1 FY05: Apr–Jun 2004
-        Q1 FY05: Jul–Sep 2004
-        Q2 FY05: Oct–Dec 2004
+        Q2 FY05: Jul–Sep 2004
+        Q3 FY05: Oct–Dec 2004
         Q4 FY05: Jan–Mar 2005
 
         ## Response:
@@ -72,6 +72,15 @@ async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: li
             chunk for chunk in rag_response["chunks"]
             if "consolidated" in chunk.page_content.lower()
         ]
+
+        from rich import print
+        from rich.markdown import Markdown
+        print(Markdown('----'))
+        print(Markdown('Consolidated'))
+        for i, chunk in enumerate(extracted_chunks):
+            print(Markdown(f"# Chunk {i}"))
+            print(chunk.metadata)
+            print(Markdown(chunk.page_content))
 
         user_prompt = f"""
 
