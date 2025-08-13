@@ -119,7 +119,7 @@ class RetrieveChunksRequest(BaseModel):
     user_query: str = ""
     file_id_list: List[str] = []
     top_k: int = 10
-    page_list: List[str] = []
+    page_list: List[int] = []
     statement_type: List[StatementTypeEnum] = []
     is_financial_statement: Optional[FinancialStatementEnum] = None
     
