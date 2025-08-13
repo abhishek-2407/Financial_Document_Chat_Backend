@@ -399,7 +399,7 @@ Important Instructions:
 - Do not add anything beyond the information visible in the image.
 - Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
 - Extract and organize everything systematically in section : 
-Headings > Full extracted text > Tables (Markdown format only) > Graphs/Charts Description .
+Headings > Important extracted text > Tables (Markdown format only) > Graphs/Charts Description .
 
 Focus on precision and completeness in extraction. 
 
@@ -423,7 +423,7 @@ Output Format should be always in valid JSON only (Priority):
             MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL")
             
             generation_config = {
-                    "max_output_tokens": 3000, 
+                    "max_output_tokens": 3500, 
                 }
                             
             model = GenerativeModel(MEDIA_ANALYSIS_MODEL)
@@ -455,12 +455,22 @@ Output Format should be always in valid JSON only (Priority):
             try:
                 idx, summary = future.result()
                 
-                match = re.search(r"```json\s*(\{.*?\})\s*```", summary, re.DOTALL)
-                if match:
-                    json_str = match.group(1)
-                    final_data = json.loads(json_str)
-                    # print(final_data)
-                else:
+                try:
+                    match = re.search(r"```json\s*(\{.*?\})\s*```", summary, re.DOTALL)
+                    if match:
+                        json_str = match.group(1)
+                        final_data = json.loads(json_str)
+                        # print(final_data)
+                        
+                except:
+                    
+                    print(final_data)
+                    final_data = {
+                            "page_data" : "Unable to scrape this page", 
+                            "is_financial_statement" : "No",
+                            "statement_type" : "none"
+                        }
+
                     print("No JSON found")
                 
                 # logging.info(final_data)
