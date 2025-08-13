@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from fastapi import Body, HTTPException
 from fastapi import APIRouter , HTTPException, status, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
+from enum import Enum
+
 from typing import List, Dict,Optional, Literal
 
 # from agents.rag_agent import doc_agents_chat,doc_agents_chat_stream
@@ -21,6 +23,8 @@ from agents.comparative_agent import comparative_agents_stream
 from agents.summary_agent import summary_agents_stream
 from agents.general_agent import general_agents_stream
 from agents.calculation_agent import calculation_agents_stream
+from functions.query_rag import retrieve_chunks
+
 
 
 from utils.s3_function import get_presigned_urls_from_s3,get_files_from_s3_in_base64_for_file,get_files_from_s3_in_base64, delete_file_from_s3
@@ -90,6 +94,7 @@ class PDFRequest(BaseModel):
     upload_type : str = "file" 
     file_id_list : Optional[List[str]] = None 
     
+    
 class SummaryFileRequest(BaseModel):
     user_id : str
     thread_id : str
@@ -99,6 +104,24 @@ class SummaryFileRequest(BaseModel):
     fixed_section_list: List[str] = None
     dynamic_section_list: Dict = None
     # stream : bool = False
+
+
+class FinancialStatementEnum(str, Enum):
+    yes = "Yes"
+    no = "No"
+
+class StatementTypeEnum(str, Enum):
+    consolidated = "consolidated"
+    standalone = "standalone"
+    both = "both"
+    none = "none"
+class RetrieveChunksRequest(BaseModel):
+    user_query: str = ""
+    file_id_list: List[str] = []
+    top_k: int = 10
+    page_list: List[str] = []
+    statement_type: List[StatementTypeEnum] = []
+    is_financial_statement: Optional[FinancialStatementEnum] = None
     
     
     
@@ -731,6 +754,17 @@ async def dynamic_section(sections : DynamicSection, db: Session = Depends(get_d
             "status": 500,
             "response": f"Error in generating response: {str(e)}"
         }
+
+@router.post("/retrieve-chunks")   
+async def retrieve_chunks_endpoint(payload: RetrieveChunksRequest):
+    return await retrieve_chunks(
+        user_query=payload.user_query,
+        file_id_list=payload.file_id_list,
+        top_k=payload.top_k,
+        page_list=payload.page_list,
+        statement_type=payload.statement_type,
+        is_financial_statement=payload.is_financial_statement
+    )
 
     
         
