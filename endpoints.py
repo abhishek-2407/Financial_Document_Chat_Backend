@@ -118,7 +118,6 @@ async def combined_stream(agent_streams):
 async def get_chat_response(chat_response: ChatResponse):
     
     file_list = chat_response.file_id_list
-    logging.info("t1")
     
     for f in file_list:
         f["file_name"] = f["file_name"].split("/")[-1]

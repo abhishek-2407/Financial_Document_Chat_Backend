@@ -6,6 +6,7 @@ import logging
 import time
 import base64
 import tempfile
+import re
 import subprocess
 import fitz
 import concurrent.futures
@@ -371,14 +372,22 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
     #                         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
     #                         api_version=os.getenv("AZURE_OPENAI_VERSION"),
     #                         max_tokens=4000)
+    
+    output_json_structure = """
+    {
+        "page_data" : "scraped_data_from_page but no json format inside this.", 
+        "is_financial_statement" : Yes or No,
+        "statement_type" : ("consolidated", "standalone", "both", "none")
+    }
+    """
 
-    prompt_template = """ You are Document scrapper who extract the information from the given image.
+    prompt_template = f""" You are Document scrapper who extract the information from the given image.
     
 Extract text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
 
 If there are any charts, graphs, or bar plots, describe each of them specifically and accurately in short. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and extract the data into table file foramte, including labels, axes, legends, and data values if visible.
 
-If there are tables present, extract them in Markdown table format, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
+If there are tables present, extract them in Proper Markdown table format only, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
 
 If there are any random images (pictures unrelated to charts/graphs/tables), summarize them in short paragraphs without adding any interpretation or assumption)
 
@@ -389,10 +398,15 @@ Important Instructions:
 - Do not miss any information.
 - Do not add anything beyond the information visible in the image.
 - Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
-- Extract and organize everything systematically: Headings > Full extracted text > Tables (Markdown format) > Graphs/Charts Description .
+- Extract and organize everything systematically in section : 
+Headings > Full extracted text > Tables (Markdown format only) > Graphs/Charts Description .
 
+Focus on precision and completeness in extraction. 
 
-Focus on precision and completeness in extraction. """
+Output Format should be always in valid JSON only (Priority):
+{output_json_structure}
+
+"""
     
     def process_single_image(image_data: Tuple[int, str]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
@@ -440,7 +454,20 @@ Focus on precision and completeness in extraction. """
         for future in concurrent.futures.as_completed(future_to_image):
             try:
                 idx, summary = future.result()
+                
+                match = re.search(r"```json\s*(\{.*?\})\s*```", summary, re.DOTALL)
+                if match:
+                    json_str = match.group(1)
+                    final_data = json.loads(json_str)
+                    # print(final_data)
+                else:
+                    print("No JSON found")
+                
+                # logging.info(final_data)
+                
+                summary = final_data
                 image_summaries[idx] = summary  
+                
             except Exception as e:
                 img_data = future_to_image[future]
                 idx = img_data[0]
@@ -450,14 +477,17 @@ Focus on precision and completeness in extraction. """
     # Add image summaries
     img_ids = [str(uuid.uuid4()) for _ in images]
     summary_img = [
-        Document(page_content=summary, 
+        Document(page_content=summary["page_data"], 
                  metadata={
                      "doc_id": img_ids[i], 
                      "thread_id": thread_id, 
                      "file_id": file_id, 
                      "file_name": file_name,
                      "page_number": i + 1,
-                     "type": "image"
+                     "type": "image",
+                     "is_financial_statement" : summary["is_financial_statement"],
+                     "statement_type" : summary["statement_type"]
+                     
                      }
                  ) for i, summary in enumerate(image_summaries)
     ]
