@@ -32,7 +32,7 @@ async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: li
 
 
     try:
-        rag_response = await retrieve_chunks(user_query=f"{consolidated_user_query}", file_id_list=file_id_list, top_k=top_k_default, statement_type=["consolidated"], is_financial_statement="Yes")
+        rag_response = await retrieve_chunks(user_query=f"{consolidated_user_query}", file_id_list=file_id_list, top_k=top_k_default, statement_type=["consolidated", "both"], is_financial_statement="Yes")
 
         response = {
             "status_code": 200,
