@@ -19,7 +19,7 @@ You must choose exactly ONE or MULTIPLE of the following agents, strictly based 
     - general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
 
 Rules:
-1. If the query contains abbreviations, expand them to their full form in the prompt.
+1. If the query contains abbreviations, expand them to their full form in the prompt but also keep the short form.
 2. If user ask for mention any specific name then return json of that particular file and ignore others.
 3. If multiple file_ids are provided and the query is independent for each file (no cross-file comparison), return one entry per file_id with the same agent and prompt, changing only the file_id.
    Example:
