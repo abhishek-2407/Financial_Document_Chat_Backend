@@ -379,7 +379,7 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
 
     class ChunkMetadataStructure(BaseModel):
         is_financial_statement: Literal["Yes", "No"] = Field(
-            description="Indicates whether the document is a financial statement or not."
+            description="""Indicates whether the document is only financial statement or not."""
         )
         statement_type: Literal["consolidated", "standalone", "both", "none"] = Field(
             description=(
@@ -390,6 +390,18 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
                 "'none' if not a financial statement."
             )
         )
+        notes: Literal["Yes", "No"] = Field(
+        description="""
+        Indicates whether the document is a Notes to Financial Statements section.
+
+        ✅ Mark 'Yes' only if the HEADER explicitly contains phrases like:
+           - 'Notes to Consolidated Financial Statements'
+           - 'Notes to Standalone Financial Statements'
+           - 'Notes to Financial Statements'
+
+        ❌ Do NOT mark 'Yes' if 'Notes' appears casually in running text, table or footnotes.
+        """
+    )
 
     prompt_template = f""" You are Document scrapper who extract the information from the given image.
     
@@ -443,7 +455,7 @@ Focus on precision and completeness in extraction.
                 api_key=os.getenv("AZURE_OPENAI_API_KEY"),
                 azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                 api_version=os.getenv("AZURE_OPENAI_VERSION"),
-                max_tokens=4000
+                max_tokens=1000
             ).with_structured_output(
                 ChunkMetadataStructure
             )
@@ -452,6 +464,7 @@ Focus on precision and completeness in extraction.
 
             result["is_financial_statement"] = json_model_output.is_financial_statement
             result["statement_type"] = json_model_output.statement_type
+            result["notes"] = json_model_output.notes
 
             # prompt = ChatPromptTemplate.from_messages(messages)
             # chain = prompt | model | StrOutputParser()
@@ -519,7 +532,8 @@ Focus on precision and completeness in extraction.
                      "page_number": i + 1,
                      "type": "image",
                      "is_financial_statement" : summary["is_financial_statement"],
-                     "statement_type" : summary["statement_type"]
+                     "statement_type" : summary["statement_type"],
+                     "notes" : summary["notes"]
                      
                      }
                  ) for i, summary in enumerate(image_summaries)

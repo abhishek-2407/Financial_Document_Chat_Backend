@@ -77,6 +77,10 @@ async def comparative_agents_stream(query: str, user_id: str, query_id: str, fil
                     - **top_k** (int):  
                         - If the user asks for an **overall summary**, set top_k = 10.  
                         - Otherwise, use `top_k = 10` for single-page or general queries.  
+                    - **notes** (str) : ('No' or nothing)  
+                        - Pass 'No' if nothing is mentioned about notes.
+                        - Pass nothing if query is should be answered including notes. 
+                        
                         
                     
                     **Get context from fetch_relevant_response tool everytime you need to get context.**
