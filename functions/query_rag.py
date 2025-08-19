@@ -54,7 +54,14 @@ def connect_qdrant():
         raise HTTPException(status_code=500, detail="Failed to connect to Qdrant.")
 
 
-async def retrieve_chunks(user_query: str = "" ,file_id_list : List[str] = [], top_k: int = 10, page_list: List[str] = [] ) -> Dict[str, Any]:
+async def retrieve_chunks(
+            user_query: str = "" ,
+            file_id_list : List[str] = [], 
+            top_k: int = 10, 
+            page_list: List[int] = [] , 
+            statement_type : List[str] = [], 
+            is_financial_statement : str = None
+            ) -> Dict[str, Any]:
     """
     Asynchronously retrieves chunks from the RAG vector store and uses OpenAI to respond.
 
@@ -69,13 +76,15 @@ async def retrieve_chunks(user_query: str = "" ,file_id_list : List[str] = [], t
         
         
         
-        logging.info(f"top k : {top_k}")
+        logging.info(f"top k : {top_k}, Page_number : {page_list}, statement_type : {statement_type}, is_financial_statement : {is_financial_statement}")
         client = connect_qdrant()
         vectorstore = QdrantVectorStore(
             client=client,
             collection_name=collection_name,
             embedding=embeddings,
         )
+        
+        logging.info(f"file id list : {file_id_list}")
         
         filter_condition = [
                     qdrant_client.models.FieldCondition(
@@ -90,7 +99,6 @@ async def retrieve_chunks(user_query: str = "" ,file_id_list : List[str] = [], t
                     #     key="metadata.type",
                     #     match=qdrant_client.models.MatchValue(value="image"),
                     # ),
-                       
                 ]
         
         if page_list:
@@ -99,8 +107,21 @@ async def retrieve_chunks(user_query: str = "" ,file_id_list : List[str] = [], t
                         key="metadata.page_number",
                         match=qdrant_client.models.MatchAny(any=page_list),
                     ))
-        
-        
+            
+        if statement_type:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.statement_type",
+                        match=qdrant_client.models.MatchAny(any=statement_type),
+                    ))
+            
+        if is_financial_statement:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.is_financial_statement",
+                        match=qdrant_client.models.MatchValue(value=is_financial_statement),
+                    ))
+            
         results = await vectorstore.asimilarity_search(
             user_query,
             k=top_k,

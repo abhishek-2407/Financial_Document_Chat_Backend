@@ -43,7 +43,7 @@ def connect_qdrant():
         
         )
         collection_config = qdrant_client.http.models.VectorParams(
-            size=768, 
+            size=1536, 
             distance=qdrant_client.http.models.Distance.COSINE
             )
         
@@ -59,7 +59,7 @@ embeddings = AzureOpenAIEmbeddings(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
             api_version=os.getenv("AZURE_OPENAI_VERSION"),
-            dimensions=768,
+            dimensions=1536,
         )
 
 from typing import List
@@ -155,8 +155,13 @@ def split_documents(data: str) -> List[Dict[str, Any]]:
 
 def check_and_create_collection(collection_name:str, size: int = 1536):
     client = connect_qdrant()
-    if client.get_collection(collection_name = collection_name):
-            client.delete_collection(collection_name = collection_name)
+    try :
+        if client.get_collection(collection_name = collection_name):
+                client.delete_collection(collection_name = collection_name)
+                
+    except :
+        print("No collection found")
+    
     
     collection_config = qdrant_client.http.models.VectorParams(
             size=size, 

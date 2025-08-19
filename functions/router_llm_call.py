@@ -2,43 +2,63 @@
 
 from utils.llm_calling import call_openai
 
-def get_router_response(user_query: str) -> str:
+def get_router_response(user_query: str, file_id_list) -> str:
+    
+    
     
     system_prompt = """
-    You are a financial document query router. Analyze the user's query to determine which specialized agent(s) should handle it.
+You are a financial document query router. Your task is to analyze the user's query and determine which specialized agent(s) should handle it.
 
-    Select ONE or MULTIPLE of the following specialized agents based on the query's intent:
+You must choose exactly ONE or MULTIPLE of the following agents, strictly based on the query’s intent:
 
-    - revenue_analyst: Handles queries related to revenue analysis, revenue breakdown by segments, revenue trends over time, and revenue forecasting.
-    - expense_analyst: Handles queries related to expense analysis, cost structures, operational or departmental expenses, expense trends, and cost optimization strategies.
-    - comparative_analysis: Handles queries involving comparisons across time periods, business units, competitors, or financial trends; also includes benchmarking and variance analysis.
-    - summary_agent: Handles queries that request a concise summary of financial documents, such as reports, filings, or statements.
-    - calculation_agent: Handles numerical computations, derived financial metrics, or any query requiring calculations. Only used this if user asked to calculate.
-    - general_agent: Handles general Q&A, recommendations, clarifications, or queries. Also Use this when no other category fits.
+    - revenue_analyst: Revenue analysis, revenue breakdown by segments, revenue trends over time, revenue forecasting.
+    - expense_analyst: Expense analysis, cost structures, operational or departmental expenses, expense trends, cost optimization.
+    - comparative_analysis: Comparisons across time periods, business units, competitors, or financial trends; benchmarking and variance analysis.
+    - summary_agent: Concise summaries of financial documents such as reports, filings, or statements.
+    - calculation_agent: Numerical computations, derived metrics, or any query explicitly asking for calculation. Use ONLY if calculation is explicitly required.
+    - general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
 
+Rules:
+1. If the query contains abbreviations, expand them to their full form in the prompt but also keep the short form.
+2. If user ask for mention any specific name then return json of that particular file and ignore others.
+3. If multiple file_ids are provided and the query is independent for each file (no cross-file comparison), return one entry per file_id with the same agent and prompt, changing only the file_id.
+   Example:
+   [
+       { "agent": "agent_name", "prompt": "User prompt: <query>", "file_id": ["id1"] },
+       { "agent": "agent_name", "prompt": "User prompt: <query>", "file_id": ["id2"] }
+   ]
+4. If the query is a comparison across files, return a single object with all file_ids in the "file_id" list.
+   Example:
+   [
+       { "agent": "comparative_analysis", "prompt": "User prompt: <query>", "file_id": ["id1", "id2"] }
+   ]
+5. Do not assign agents based on assumptions — only use the agent whose definition clearly matches the query intent.
+6. The output must be ONLY a JSON list of objects in the exact format specified — no extra explanation, text, or formatting.
 
-    Return your output in the following format (JSON list of objects):
-    [ 
-        { "agent": "agent_name", "prompt": "User prompt : same user_query" }, as many as needed.
-    ]
+Return format (strict):
+[
+    { "agent": "agent_name", "prompt": "User prompt: <query>", "file_id": ["file_id(s)"] }
+]
 
-    Examples:
+Example 1:
+Input: Compare the revenue performance of Q1 2023 and Q1 2024
+Output:
+[
+    { "agent": "comparative_analysis", "prompt": "Compare revenue performance between Quarter 1 2023 and Quarter 1 2024.", "file_id": ["id1", "id2"] }
+]
 
-    Input: "Compare the revenue performance of Q1 2023 and Q1 2024"
-    Output: [ 
-    { "agent": "comparative_analysis", "prompt": "Compare revenue performance between Q1 2023 and Q1 2024." } 
-    ]
+Example 2:
+Input: Summarize the key points from the 2023 annual report
+Output:
+[
+    { "agent": "summary_agent", "prompt": "Summarize key points from the 2023 annual financial report.", "file_id": ["id1"] }
+]
+"""
 
-    Input: "Summarize the key points from the 2023 annual report"
-    Output: [ 
-    { "agent": "summary_agent", "prompt": "Summarize key points from the 2023 annual financial report." } 
-    ]
-
-    Only output the list in the specified format. Do not include any other explanation.
+    
+    user_prompt = f"""This is user query: {user_query}.
+    This is File_id_list : {file_id_list}
     """
-    
-    
-    user_prompt = f"This is user query: {user_query}"
     
     response = call_openai(system_prompt=system_prompt, user_prompt=user_prompt)
     

@@ -6,10 +6,11 @@ import logging
 import time
 import base64
 import tempfile
+import re
 import subprocess
 import fitz
 import concurrent.futures
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Literal, Tuple
 import numpy as np
 import cv2
 
@@ -21,6 +22,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from PIL import Image
+from pydantic import BaseModel, Field
 from vertexai.generative_models import GenerativeModel, Part
 import vertexai
 
@@ -214,13 +216,15 @@ def get_advance_chunk(base64_str: str, file_name: str, thread_id: str, file_id: 
 
     images = chunks_base64_list
 
-    model = AzureChatOpenAI(model="gpt-4o-mini",
-                            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-                            api_version=os.getenv("AZURE_OPENAI_VERSION"),
-                            max_tokens=4000)
+    model = AzureChatOpenAI(
+        model="gpt-4o-mini",
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_version=os.getenv("AZURE_OPENAI_VERSION"),
+        max_tokens=4000
+    )
 
-    prompt_template = """ You are Document scrapper who extract all the information from the given image.
+    prompt_template = """You are Document scrapper who extract all the information from the given image.
     
     Extract all text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
 
@@ -238,7 +242,7 @@ Important Instructions:
 - Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
 - Extract and organize everything systematically: Headings > Full extracted text > Tables (Markdown format) > Graphs/Charts Description .
 
-Focus on precision and completeness in extraction. """
+Focus on precision and completeness in extraction."""
     
     def process_single_image(image_data: Tuple[int, str]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
@@ -371,14 +375,29 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
     #                         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
     #                         api_version=os.getenv("AZURE_OPENAI_VERSION"),
     #                         max_tokens=4000)
+    
 
-    prompt_template = """ You are Document scrapper who extract the information from the given image.
+    class ChunkMetadataStructure(BaseModel):
+        is_financial_statement: Literal["Yes", "No"] = Field(
+            description="Indicates whether the document is a financial statement or not."
+        )
+        statement_type: Literal["consolidated", "standalone", "both", "none"] = Field(
+            description=(
+                "Specifies the type of financial statement. "
+                "'consolidated' for combined company statements, "
+                "'standalone' for individual company statements, "
+                "'both' if both types are present, "
+                "'none' if not a financial statement."
+            )
+        )
+
+    prompt_template = f""" You are Document scrapper who extract the information from the given image.
     
 Extract text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
 
 If there are any charts, graphs, or bar plots, describe each of them specifically and accurately in short. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and extract the data into table file foramte, including labels, axes, legends, and data values if visible.
 
-If there are tables present, extract them in Markdown table format, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
+If there are tables present, extract them in Proper Markdown table format only, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
 
 If there are any random images (pictures unrelated to charts/graphs/tables), summarize them in short paragraphs without adding any interpretation or assumption)
 
@@ -389,10 +408,11 @@ Important Instructions:
 - Do not miss any information.
 - Do not add anything beyond the information visible in the image.
 - Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
-- Extract and organize everything systematically: Headings > Full extracted text > Tables (Markdown format) > Graphs/Charts Description .
+- Extract and organize everything systematically in section : 
+Headings > All extracted text > Tables (Markdown format only) > Graphs/Charts Description .
 
-
-Focus on precision and completeness in extraction. """
+Focus on precision and completeness in extraction. 
+"""
     
     def process_single_image(image_data: Tuple[int, str]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
@@ -409,13 +429,29 @@ Focus on precision and completeness in extraction. """
             MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL")
             
             generation_config = {
-                    "max_output_tokens": 3000, 
+                    "max_output_tokens": 3500, 
                 }
                             
-            model = GenerativeModel(MEDIA_ANALYSIS_MODEL)
-            response = model.generate_content(messages, generation_config=generation_config)
-            result = ""
-            result = response.text
+            gemini_model = GenerativeModel(MEDIA_ANALYSIS_MODEL)
+            response = gemini_model.generate_content(messages, generation_config=generation_config)
+            result = {
+                "page_data": response.text,
+            }
+
+            json_model = AzureChatOpenAI(
+                model="gpt-4o-mini",
+                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                api_version=os.getenv("AZURE_OPENAI_VERSION"),
+                max_tokens=4000
+            ).with_structured_output(
+                ChunkMetadataStructure
+            )
+
+            json_model_output = json_model.invoke(response.text)
+
+            result["is_financial_statement"] = json_model_output.is_financial_statement
+            result["statement_type"] = json_model_output.statement_type
 
             # prompt = ChatPromptTemplate.from_messages(messages)
             # chain = prompt | model | StrOutputParser()
@@ -440,7 +476,31 @@ Focus on precision and completeness in extraction. """
         for future in concurrent.futures.as_completed(future_to_image):
             try:
                 idx, summary = future.result()
+                
+                # print(idx, ": Summary", summary)
+                # try:
+                #     match = re.search(r"```json\s*(\{.*?\})\s*```", summary, re.DOTALL)
+                #     if match:
+                #         json_str = match.group(1)
+                #         final_data = json.loads(json_str)
+                #         # print(final_data)
+                #
+                # except:
+                #
+                #     print(final_data)
+                #     final_data = {
+                #             "page_data" : "Unable to scrape this page", 
+                #             "is_financial_statement" : "No",
+                #             "statement_type" : "none"
+                #         }
+                #
+                #     print("No JSON found")
+                
+                # logging.info(final_data)
+                
+                summary = summary
                 image_summaries[idx] = summary  
+                
             except Exception as e:
                 img_data = future_to_image[future]
                 idx = img_data[0]
@@ -450,14 +510,17 @@ Focus on precision and completeness in extraction. """
     # Add image summaries
     img_ids = [str(uuid.uuid4()) for _ in images]
     summary_img = [
-        Document(page_content=summary, 
+        Document(page_content=summary["page_data"], 
                  metadata={
                      "doc_id": img_ids[i], 
                      "thread_id": thread_id, 
                      "file_id": file_id, 
                      "file_name": file_name,
                      "page_number": i + 1,
-                     "type": "image"
+                     "type": "image",
+                     "is_financial_statement" : summary["is_financial_statement"],
+                     "statement_type" : summary["statement_type"]
+                     
                      }
                  ) for i, summary in enumerate(image_summaries)
     ]

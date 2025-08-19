@@ -1,7 +1,2 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
-now_india = datetime.now(ZoneInfo("Asia/Kolkata"))
-formatted_date = now_india.strftime("%d-%b-%Y")
-print(formatted_date)
-
+from functions.router_llm_call import get_router_response
+print(get_router_response("What is the revenue of tcs?", file_id_list=[{"file_id":"8396f7e3-c973-4dbd-b7f0-1bfc168cd4d6","file_name":"admin001/dipu_testing_files/Q1FY26_TCS_Standalone.pdf"},{"file_id":"e1a6e88d-f709-490b-8d13-b94af83e76bc","file_name":"admin001/dipu_testing_files/Q1FY26_TCS_Consolidated.pdf"},{"file_id":"b4164839-374f-4796-8ff3-40b7dbf93427","file_name":"admin001/dipu_testing_files/IIFL - Cement - 4QFY24 review note - 20240603.pdf"}]))

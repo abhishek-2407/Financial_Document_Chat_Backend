@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from fastapi import Body, HTTPException
 from fastapi import APIRouter , HTTPException, status, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
+from enum import Enum
+
 from typing import List, Dict,Optional, Literal
 
 # from agents.rag_agent import doc_agents_chat,doc_agents_chat_stream
@@ -21,6 +23,8 @@ from agents.comparative_agent import comparative_agents_stream
 from agents.summary_agent import summary_agents_stream
 from agents.general_agent import general_agents_stream
 from agents.calculation_agent import calculation_agents_stream
+from functions.query_rag import retrieve_chunks
+
 
 
 from utils.s3_function import get_presigned_urls_from_s3,get_files_from_s3_in_base64_for_file,get_files_from_s3_in_base64, delete_file_from_s3
@@ -56,7 +60,7 @@ class ChatResponse(BaseModel):
     query : str
     user_id : str
     query_id : str
-    file_id_list : List[str]
+    file_id_list : List[Dict]
     stream : bool = False
     
     
@@ -90,6 +94,7 @@ class PDFRequest(BaseModel):
     upload_type : str = "file" 
     file_id_list : Optional[List[str]] = None 
     
+    
 class SummaryFileRequest(BaseModel):
     user_id : str
     thread_id : str
@@ -99,6 +104,24 @@ class SummaryFileRequest(BaseModel):
     fixed_section_list: List[str] = None
     dynamic_section_list: Dict = None
     # stream : bool = False
+
+
+class FinancialStatementEnum(str, Enum):
+    yes = "Yes"
+    no = "No"
+
+class StatementTypeEnum(str, Enum):
+    consolidated = "consolidated"
+    standalone = "standalone"
+    both = "both"
+    none = "none"
+class RetrieveChunksRequest(BaseModel):
+    user_query: str = ""
+    file_id_list: List[str] = []
+    top_k: int = 10
+    page_list: List[int] = []
+    statement_type: List[StatementTypeEnum] = []
+    is_financial_statement: Optional[FinancialStatementEnum] = None
     
     
     
@@ -116,7 +139,13 @@ async def combined_stream(agent_streams):
 
 @router.post("/chat")
 async def get_chat_response(chat_response: ChatResponse):
-    selected_agent_list = get_router_response(user_query=chat_response.query)  
+    
+    file_list = chat_response.file_id_list
+    
+    for f in file_list:
+        f["file_name"] = f["file_name"].split("/")[-1]
+
+    selected_agent_list = get_router_response(user_query=chat_response.query, file_id_list=file_list)  
     
     file_count = len(chat_response.file_id_list)
 
@@ -129,6 +158,7 @@ async def get_chat_response(chat_response: ChatResponse):
         logging.info(f"Agent Name: {agent_info}")
         agent_name = agent_info["agent"]
         agent_prompt = agent_info["prompt"]
+        agent_file_id = agent_info["file_id"]
 
         if not agent_name or not agent_prompt:
             logging.warning(f"Invalid agent info: {agent_info}")
@@ -141,7 +171,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
         elif agent_name == "expense_analyst":
@@ -149,7 +179,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
         elif agent_name == "comparative_analysis":
@@ -157,7 +187,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
             
         elif agent_name == "general_agent":
@@ -165,7 +195,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
         elif agent_name == "summary_agent":
@@ -173,7 +203,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
         elif agent_name == "calculation_agent":
@@ -181,7 +211,7 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=chat_response.file_id_list
+                file_id_list=agent_file_id
             ))
 
     if not agent_streams:
@@ -724,6 +754,17 @@ async def dynamic_section(sections : DynamicSection, db: Session = Depends(get_d
             "status": 500,
             "response": f"Error in generating response: {str(e)}"
         }
+
+@router.post("/retrieve-chunks")   
+async def retrieve_chunks_endpoint(payload: RetrieveChunksRequest):
+    return await retrieve_chunks(
+        user_query=payload.user_query,
+        file_id_list=payload.file_id_list,
+        top_k=payload.top_k,
+        page_list=payload.page_list,
+        statement_type=payload.statement_type,
+        is_financial_statement=payload.is_financial_statement
+    )
 
     
         

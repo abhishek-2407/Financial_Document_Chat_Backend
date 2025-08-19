@@ -18,6 +18,9 @@ from langchain_openai import AzureChatOpenAI
 from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from tools.query_rag import fetch_relevant_response
+from tools.fetch_consolidated import fetch_consolidated_data
+from tools.fetch_standalone import fetch_standalone_data
+
 
 
 from prompts import comparative_analysis_agent, common_prompt_func
@@ -40,7 +43,7 @@ def _modify_state_messages(state: AgentState):
 
     return comparative_analysis_agent.invoke({"messages": messages})
 
-tools = [fetch_relevant_response]
+tools = [fetch_relevant_response, fetch_standalone_data, fetch_consolidated_data]
 
 async def comparative_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
     try:

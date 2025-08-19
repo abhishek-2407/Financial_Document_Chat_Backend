@@ -17,6 +17,8 @@ from langchain_openai import AzureOpenAIEmbeddings
 from langchain_openai import AzureChatOpenAI
 from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from tools.fetch_consolidated import fetch_consolidated_data
+from tools.fetch_standalone import fetch_standalone_data
 from tools.query_rag import fetch_relevant_response
 
 
@@ -40,7 +42,7 @@ def _modify_state_messages(state: AgentState):
 
     return general_agent_prompt.invoke({"messages": messages})
 
-tools = [fetch_relevant_response]
+tools = [fetch_relevant_response, fetch_standalone_data, fetch_consolidated_data]
 
 async def general_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
     try:
