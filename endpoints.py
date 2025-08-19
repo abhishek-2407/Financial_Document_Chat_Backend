@@ -61,6 +61,7 @@ class ChatResponse(BaseModel):
     user_id : str
     query_id : str
     file_id_list : List[Dict]
+    notes: str
     stream : bool = False
     
     
@@ -122,6 +123,7 @@ class RetrieveChunksRequest(BaseModel):
     page_list: List[int] = []
     statement_type: List[StatementTypeEnum] = []
     is_financial_statement: Optional[FinancialStatementEnum] = None
+    notes : str = None
     
     
     
@@ -139,6 +141,12 @@ async def combined_stream(agent_streams):
 
 @router.post("/chat")
 async def get_chat_response(chat_response: ChatResponse):
+    
+    notes = chat_response.notes
+    if notes == "Yes":
+        notes = None
+        
+    # logging.info(f"Notes section : {notes}")
     
     file_list = chat_response.file_id_list
     
@@ -171,7 +179,8 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=agent_file_id
+                file_id_list=agent_file_id,
+                notes=notes
             ))
 
         elif agent_name == "expense_analyst":
@@ -179,7 +188,8 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=agent_file_id
+                file_id_list=agent_file_id,
+                notes=notes
             ))
 
         elif agent_name == "comparative_analysis":
@@ -187,7 +197,8 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=agent_file_id
+                file_id_list=agent_file_id,
+                notes=notes
             ))
             
         elif agent_name == "general_agent":
@@ -195,7 +206,8 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=agent_file_id
+                file_id_list=agent_file_id,
+                notes=notes
             ))
 
         elif agent_name == "summary_agent":
@@ -203,7 +215,8 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=agent_file_id
+                file_id_list=agent_file_id,
+                notes=notes
             ))
 
         elif agent_name == "calculation_agent":
@@ -211,7 +224,8 @@ async def get_chat_response(chat_response: ChatResponse):
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
-                file_id_list=agent_file_id
+                file_id_list=agent_file_id,
+                notes=notes
             ))
 
     if not agent_streams:
@@ -763,7 +777,8 @@ async def retrieve_chunks_endpoint(payload: RetrieveChunksRequest):
         top_k=payload.top_k,
         page_list=payload.page_list,
         statement_type=payload.statement_type,
-        is_financial_statement=payload.is_financial_statement
+        is_financial_statement=payload.is_financial_statement,
+        notes=payload.notes
     )
 
     

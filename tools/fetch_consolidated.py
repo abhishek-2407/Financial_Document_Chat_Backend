@@ -29,7 +29,7 @@ async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: li
 
     """
     logging.info("Tool called : fetch_consolidated_data")
-    logging.info(f"Notes : {notes}")
+    # logging.info(f"Notes : {notes}")
 
     top_k_default= 6
 

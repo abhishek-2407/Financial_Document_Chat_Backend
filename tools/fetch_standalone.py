@@ -18,7 +18,7 @@ async def fetch_standalone_data(standalone_user_query : str,file_id_list : list,
     - `standalone_user_query` (str): Query asking for standalone data.
     - `file_id_list` (list): List of file IDs to retrieve chunks from.
     - `top_k` (int): Number of top relevant chunks to fetch (default: 10).
-    - `notes` ('Yes' or 'No'): Including Notes section or not
+    - `notes` ('No' or None): Including Notes section or not
 
     🧾 Returns:
     - Chunks with standalone data only.
@@ -26,7 +26,7 @@ async def fetch_standalone_data(standalone_user_query : str,file_id_list : list,
 
     """
     logging.info("Tool called : fetch_standalone_data")
-    logging.info(f"Notes : {notes}")
+    # logging.info(f"Notes : {notes}")
 
     top_k_default= 6
     

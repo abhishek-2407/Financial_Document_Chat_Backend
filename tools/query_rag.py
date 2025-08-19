@@ -8,7 +8,7 @@ from langchain_core.runnables.config import RunnableConfig
 
 
 @tool
-async def fetch_relevant_response(user_query: str, user_id: str, file_id_list : list, top_k : int = 10):
+async def fetch_relevant_response(user_query: str, user_id: str, file_id_list : list, notes:str, top_k : int = 10):
     """
     Tool : fetch_relevant_chunks
     Fetches the chunks from the vector database for the relevant user query.
@@ -19,6 +19,8 @@ async def fetch_relevant_response(user_query: str, user_id: str, file_id_list : 
         file_id_list (list) : List of file id to filter the chunks using the metadata.
         thread_id (str): A unique identifier for the chat thread.
         user_id (str): A unique identifier for individual user.
+        `notes` ('No' or None): Including Notes section or not
+
 
     Returns:
         dict 200: A list of chunks for the relevant query inside the chunks key.
@@ -29,7 +31,7 @@ async def fetch_relevant_response(user_query: str, user_id: str, file_id_list : 
         # logging.info(f" from tool logging top k : {top_k}, thread id : {thread_id}, query id : {query_id}, file id list : {file_id_list}, user query : {user_query}")
 
         # Fetch the RAG response and chunks asynchronously
-        rag_response = await retrieve_chunks(user_query=user_query, file_id_list = file_id_list, top_k=top_k)
+        rag_response = await retrieve_chunks(user_query=user_query, file_id_list = file_id_list, top_k=top_k, notes=notes)
 
         final_response = {
             "status_code": 200,

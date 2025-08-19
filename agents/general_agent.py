@@ -44,7 +44,7 @@ def _modify_state_messages(state: AgentState):
 
 tools = [fetch_relevant_response, fetch_standalone_data, fetch_consolidated_data]
 
-async def general_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list,timeout_: int = 55):
+async def general_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list, notes : str,timeout_: int = 55):
     try:
         #DB_URI = "postgres://username@host:port/database_name""
         start_time = time.time()
@@ -76,10 +76,7 @@ async def general_agents_stream(query: str, user_id: str, query_id: str, file_id
                     - **top_k** (int):  
                         - If the user asks for an **overall summary**, set top_k = 10.  
                         - Otherwise, use `top_k = 10` general queries.
-                    - **notes** (str) : ('No' or nothing)  
-                        - Pass 'No' if nothing is mentioned about notes.
-                        - Pass nothing if query is should be answered including notes. 
-                          
+                    - **notes** (str) : {notes}  
                         
                     
                     **Get context from fetch_relevant_response tool everytime you need to get context.**

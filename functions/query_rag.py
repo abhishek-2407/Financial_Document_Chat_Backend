@@ -77,7 +77,7 @@ async def retrieve_chunks(
         
         
         
-        logging.info(f"top k : {top_k}, Page_number : {page_list}, statement_type : {statement_type}, is_financial_statement : {is_financial_statement}")
+        logging.info(f"top k : {top_k}, Page_number : {page_list}, statement_type : {statement_type}, is_financial_statement : {is_financial_statement}, notes : {notes}")
         client = connect_qdrant()
         vectorstore = QdrantVectorStore(
             client=client,
