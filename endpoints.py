@@ -125,6 +125,7 @@ class RetrieveChunksRequest(BaseModel):
     statement_type: List[StatementTypeEnum] = []
     is_financial_statement: Optional[FinancialStatementEnum] = None
     notes : str = None
+    core_statements : str = None
     
     
     
@@ -779,7 +780,8 @@ async def retrieve_chunks_endpoint(payload: RetrieveChunksRequest):
         page_list=payload.page_list,
         statement_type=payload.statement_type,
         is_financial_statement=payload.is_financial_statement,
-        notes=payload.notes
+        notes=payload.notes,
+        core_statements=payload.core_statements
     )
 
     
