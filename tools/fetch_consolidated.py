@@ -4,7 +4,7 @@ from functions.query_rag import retrieve_chunks
 from utils.llm_calling import call_openai
 
 @tool
-async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: list, top_k: int = 6, notes:str = None):
+async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: list, top_k: int = 6, notes:str = None, core_statements : str = None):
     """
     📄 Tool: fetch_consolidated_data
 
@@ -22,6 +22,7 @@ async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: li
     - `file_id_list` (list): List of file IDs to retrieve chunks from.
     - `top_k` (int): Number of top relevant chunks to fetch (default: 10).
     - `notes` ('No' or None): Including Notes section or not
+    - `core_statements` ('Yes' or 'No'): Including core financial statements
 
     🧾 Returns:
     - Chunks with consolidated data only.
@@ -35,7 +36,7 @@ async def fetch_consolidated_data(consolidated_user_query: str, file_id_list: li
 
 
     try:
-        rag_response = await retrieve_chunks(user_query=f"{consolidated_user_query}", file_id_list=file_id_list, top_k=top_k_default, statement_type=["consolidated", "both"], is_financial_statement="Yes", notes=notes)
+        rag_response = await retrieve_chunks(user_query=f"{consolidated_user_query}", file_id_list=file_id_list, top_k=top_k_default, statement_type=["consolidated", "both"], is_financial_statement="Yes", notes=notes, core_statements=core_statements)
 
         response = {
             "status_code": 200,

@@ -42,6 +42,9 @@ def connect_qdrant():
             api_key=os.getenv("QDRANT_API_KEY")
         
         )
+        
+        collections = client.get_collections()
+
         collection_config = qdrant_client.http.models.VectorParams(
             size=1536, 
             distance=qdrant_client.http.models.Distance.COSINE

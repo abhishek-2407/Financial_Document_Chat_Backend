@@ -61,7 +61,8 @@ async def retrieve_chunks(
             page_list: List[int] = [] , 
             statement_type : List[str] = [], 
             is_financial_statement : str = None,
-            notes : str = None
+            notes : str = None,
+            core_statements : str = None
             ) -> Dict[str, Any]:
     """
     Asynchronously retrieves chunks from the RAG vector store and uses OpenAI to respond.
@@ -77,7 +78,7 @@ async def retrieve_chunks(
         
         
         
-        logging.info(f"top k : {top_k}, Page_number : {page_list}, statement_type : {statement_type}, is_financial_statement : {is_financial_statement}, notes : {notes}")
+        logging.info(f"top k : {top_k}, Page_number : {page_list}, statement_type : {statement_type}, is_financial_statement : {is_financial_statement}, notes : {notes}, core_statements : {core_statements}")
         client = connect_qdrant()
         vectorstore = QdrantVectorStore(
             client=client,
@@ -128,6 +129,13 @@ async def retrieve_chunks(
                 qdrant_client.models.FieldCondition(
                         key="metadata.notes",
                         match=qdrant_client.models.MatchValue(value=notes),
+                    ))
+            
+        if core_statements:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.core_statements",
+                        match=qdrant_client.models.MatchValue(value=core_statements),
                     ))
             
         results = await vectorstore.asimilarity_search(
