@@ -409,11 +409,9 @@ Indicates whether the document is a CORE Financial Statements section or not.
 ✅ Mark 'Yes' only if the HEADER explicitly contains phrases like:
     - 'Balance Sheet Statements'
     - 'Profit and Loss Statements'
-    - 'Changes in Equity Statments'
     - 'Cash Flows Statements'
-    - 'Financial Highlights'
-    
-    Put Yes for these section only. Ignore all other section.
+   
+    Put Yes for these section only. Mark No for all other sections.
 
 ❌ Do NOT mark 'Yes' if these words appears casually in running text, table or footnotes.
 """

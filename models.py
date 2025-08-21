@@ -3,7 +3,7 @@ import concurrent.futures
 from pathlib import Path
 from typing import Any, Coroutine
 from functions.append_tables_to_sql_db import process_consolidated_data, process_standalone_data, consolidated_user_query, standalone_user_query
-from sqlalchemy import Column, String, Boolean, DateTime, MetaData, Table, event, text, Enum,JSON
+from sqlalchemy import Column, String, Boolean, DateTime, MetaData, Table, event, text, Enum,JSON, Numeric,Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -66,6 +66,19 @@ class SummaryReport(Base):
     source_file_id = Column(JSON, nullable=False)  # Assumes a list of UUIDs
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True, default=None) 
+    
+class FinancialStatements(Base):
+    __tablename__ = "financial_statements"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_name = Column(String, nullable=False)
+    particulars = Column(String, nullable=False)
+    year = Column(Integer, nullable=False)
+    values = Column(Numeric)
+    notes = Column(String)
+    data_type = Column(String)
+    file_id = Column(UUID(as_uuid=True))
+    table_name = Column(String)
     
     
 class FileAttribute(Base):

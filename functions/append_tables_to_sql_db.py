@@ -188,7 +188,7 @@ def insert_balance_sheet_items(data, company_name, data_type, file_id, table_nam
                 sql_query = [
                 {
                     "query": """
-                            INSERT INTO balance_sheet (id, company_name, particulars, year, values, notes, data_type, file_id, table_name)
+                            INSERT INTO financial_statements (id, company_name, particulars, year, values, notes, data_type, file_id, table_name)
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
                             """,
                     "data": (str(uuid.uuid4()),
