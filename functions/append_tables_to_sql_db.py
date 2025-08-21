@@ -171,7 +171,7 @@ def safe_float(val):
     except (ValueError, TypeError):
         return None
 
-def insert_balance_sheet_items(data, company_name, data_type):
+def insert_balance_sheet_items(data, company_name, data_type, file_id, table_name):
     """Insert balance sheet items into database"""
     try:
                 
@@ -188,8 +188,8 @@ def insert_balance_sheet_items(data, company_name, data_type):
                 sql_query = [
                 {
                     "query": """
-                            INSERT INTO balance_sheet (id, company_name, particulars, year, values, notes, data_type)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s);
+                            INSERT INTO balance_sheet (id, company_name, particulars, year, values, notes, data_type, file_id, table_name)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
                             """,
                     "data": (str(uuid.uuid4()),
                     company_name,
@@ -197,7 +197,9 @@ def insert_balance_sheet_items(data, company_name, data_type):
                     int(item.get("year")),
                     safe_float(item.get("values")),
                     item.get("notes") if item.get("notes") else None,
-                    data_type)
+                    data_type,
+                    file_id,
+                    table_name)
                 }
             ] 
                 db.insert(sql_query)
@@ -233,7 +235,7 @@ def process_consolidated_data(query: str, file_id_list, company_name: str, data_
         print("❌ No data extracted from the chunk")
         return False
     
-    success = insert_balance_sheet_items(data, company_name, data_type=data_type)
+    success = insert_balance_sheet_items(data, company_name, data_type=data_type, file_id = file_id_list[0], table_name=query)
     return success
 
 
@@ -252,7 +254,7 @@ def process_standalone_data(query: str, file_id_list, company_name: str, data_ty
         print("❌ No data extracted from the chunk")
         return False
     
-    success = insert_balance_sheet_items(data, company_name, data_type=data_type)
+    success = insert_balance_sheet_items(data, company_name, data_type=data_type, file_id = file_id_list[0], table_name=query)
     return success
     
     
