@@ -97,8 +97,8 @@ def append_tables_after_rag_listener(mapper, connection, target: UserS3Mapping):
     if target.rag_status == True:
         company_name = Path(target.file_name).stem
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as cons_pool, \
-            concurrent.futures.ThreadPoolExecutor(max_workers=1) as stand_pool:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as cons_pool: 
+            # concurrent.futures.ThreadPoolExecutor(max_workers=1) as stand_pool:
 
             cons_futures = [
                 cons_pool.submit(process_consolidated_data,
@@ -106,11 +106,11 @@ def append_tables_after_rag_listener(mapper, connection, target: UserS3Mapping):
                 for q in consolidated_user_query
             ]
 
-            stand_futures = [
-                stand_pool.submit(process_standalone_data,
-                                q, [target.file_id], company_name)
-                for q in standalone_user_query
-            ]
+            # stand_futures = [
+            #     stand_pool.submit(process_standalone_data,
+            #                     q, [target.file_id], company_name)
+            #     for q in standalone_user_query
+            # ]
 
             # wait for everything inside the with-block
-            concurrent.futures.wait(cons_futures + stand_futures)
+            concurrent.futures.wait(cons_futures)
