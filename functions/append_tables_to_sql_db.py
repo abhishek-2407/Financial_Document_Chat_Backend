@@ -1,0 +1,255 @@
+
+
+from functions.query_rag import retrieve_chunks
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Literal, Tuple
+from langchain_openai import AzureChatOpenAI,ChatOpenAI
+import os 
+from dotenv import load_dotenv
+from utils.llm_calling import call_openai
+import json
+import uuid
+import psycopg2
+from utils.postgres_connection import ConnectDB
+
+
+load_dotenv()
+
+consolidated_user_query = ["balance sheet", "cash flow statement", "profit and loss" ]
+
+standalone_user_query = [ "balance sheet", "cash flow statement", "profit and loss"]
+
+
+def fetch_consolidated_chunks(query: str, file_id_list):
+    
+    user_query = f"consolidated {query}"
+
+    chunks = retrieve_chunks(
+        user_query=user_query, 
+        file_id_list=file_id_list, 
+        top_k=15, 
+        statement_type=["consolidated", "both"], 
+        core_statements="Yes",
+        is_financial_statement="Yes"
+    )
+    
+    class CheckResponse(BaseModel):
+        successful_match: Literal["Yes", "No"] = Field(
+            description=(
+                f"Indicates whether the document is a consolidated {query}."
+                "✅ Mark 'Yes' only if:"
+                "- The file match found to be same."
+                "- Before marking must check properly"
+                f"❌ Do NOT mark 'Yes' if {query} words appear casually in running text, table or footnotes."
+            )
+        )      
+    
+    # Initialize the LLM model outside the loop for efficiency
+    json_model = AzureChatOpenAI(
+        model="gpt-4o-mini",
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_version=os.getenv("AZURE_OPENAI_VERSION"),
+        max_tokens=1000
+    ).with_structured_output(CheckResponse)
+    
+    # Find the first matching chunk
+    for chunk in chunks:
+        json_model_output = json_model.invoke(chunk.text)
+        
+        # Fixed: Check successful_match instead of core_statements
+        if json_model_output.successful_match == "Yes":
+            return chunk  # Return the chunk directly
+    
+    # If no matching chunk found
+    return None
+
+def fetch_standalone_chunks(query: str, file_id_list):
+    
+    user_query = f"standalone {query}"
+    chunks = retrieve_chunks(
+        user_query=user_query, 
+        file_id_list=file_id_list, 
+        top_k=15, 
+        statement_type=["standalone", "both"], 
+        core_statements="Yes",
+        is_financial_statement="Yes"
+    )
+    
+    class CheckResponse(BaseModel):
+        successful_match: Literal["Yes", "No"] = Field(
+            description=(
+                f"Indicates whether the document is a Standalone {query}."
+                "✅ Mark 'Yes' only if:"
+                "- The file match found to be same."
+                "- Before marking must check properly"
+                f"❌ Do NOT mark 'Yes' if {query} words appear casually in running text, table or footnotes."
+            )
+        )      
+    
+    # Initialize the LLM model outside the loop for efficiency
+    json_model = AzureChatOpenAI(
+        model="gpt-4o-mini",
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_version=os.getenv("AZURE_OPENAI_VERSION"),
+        max_tokens=1000
+    ).with_structured_output(CheckResponse)
+    
+    # Find the first matching chunk
+    for chunk in chunks:
+        json_model_output = json_model.invoke(chunk.text)
+        
+        # Fixed: Check successful_match instead of core_statements
+        if json_model_output.successful_match == "Yes":
+            return chunk  # Return the chunk directly
+    
+    # If no matching chunk found
+    return None
+
+
+def extract_table_data(chunk_text):
+    """Extract table data from chunk text using OpenAI"""
+    system_prompt = """You are a json creator, extract the data out of the tables.
+
+Based on Data just scrape the content of the table.
+You must provide the whole table.
+
+This is the json format for your response.
+[
+{
+    'particulars' : 'name',
+    'year' : '2024' in this format only,
+    'values' : 'actual value', (Numeric)
+    'notes' : 'notes number if mentioned',
+}
+]
+
+Provide in Json format only
+"""
+    
+    user_prompt = f"Data : {chunk_text}"
+    
+    print("🔄 Initiated extraction")
+    try:
+        raw_response = call_openai(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            model='gpt-4o'
+        )
+        
+        print("✅ Extracted Response")
+        cleaned = raw_response.strip().replace("```json", "").replace("```", "").strip()
+        data = json.loads(cleaned)
+        print("✅ Data loaded successfully")
+        return data
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
+        return None
+    except Exception as e:
+        print(f"❌ Extraction error: {e}")
+        return None
+
+
+def safe_float(val):
+    """Convert string to float safely, return None if invalid"""
+    if not val:
+        return None
+    
+    # Handle string values
+    if isinstance(val, str):
+        val = val.replace(",", "").replace("(", "-").replace(")", "").strip()
+    
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+def insert_balance_sheet_items(data, company_name, data_type):
+    """Insert balance sheet items into database"""
+    try:
+        
+        
+        db = ConnectDB()
+
+        
+
+        inserted_count = 0
+        for item in data:
+            try:
+                # Validate required fields
+                if not item.get("particulars") or not item.get("year"):
+                    print(f"⚠️ Skipping item with missing particulars or year: {item}")
+                    continue
+                
+                sql_query = [
+                {
+                    "query": """
+                            INSERT INTO balance_sheet (id, company_name, particulars, year, values, notes, data_type)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s);
+                            """,
+                    "data": (str(uuid.uuid4()),
+                    company_name,
+                    item.get("particulars"),
+                    int(item.get("year")),
+                    safe_float(item.get("values")),
+                    item.get("notes") if item.get("notes") else None,
+                    data_type)
+                }
+            ] 
+                db.insert(sql_query)
+                
+                inserted_count += 1
+                
+            except Exception as e:
+                print(f"⚠️ Error inserting item {item}: {e}")
+                continue
+
+        db.close_connection()
+        
+        print(f"✅ Data inserted successfully! {inserted_count} items inserted.")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Database error: {e}")
+        return False
+    
+def process_consolidated_data(query: str, file_id_list, company_name: str, data_type: str = "consolidated"):
+    """Main function to process consolidated chunks and insert into database"""
+    
+    matching_chunk = fetch_consolidated_chunks(query, file_id_list)
+    
+    if not matching_chunk:
+        print("❌ No matching consolidated balance sheet found")
+        return False
+    
+    data = extract_table_data(matching_chunk.text)
+    
+    if not data:
+        print("❌ No data extracted from the chunk")
+        return False
+    
+    success = insert_balance_sheet_items(data, company_name, data_type=data_type)
+    return success
+
+
+def process_standalone_data(query: str, file_id_list, company_name: str, data_type: str = "standalone"):
+    """Main function to process consolidated chunks and insert into database"""
+    
+    matching_chunk = fetch_standalone_chunks(query, file_id_list)
+    
+    if not matching_chunk:
+        print("❌ No matching consolidated balance sheet found")
+        return False
+    
+    data = extract_table_data(matching_chunk.text)
+    
+    if not data:
+        print("❌ No data extracted from the chunk")
+        return False
+    
+    success = insert_balance_sheet_items(data, company_name, data_type=data_type)
+    return success
+    
+    

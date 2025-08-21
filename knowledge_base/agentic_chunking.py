@@ -411,6 +411,7 @@ Indicates whether the document is a CORE Financial Statements section or not.
     - 'Profit and Loss Statements'
     - 'Changes in Equity Statments'
     - 'Cash Flows Statements'
+    - 'Financial Highlights'
     
     Put Yes for these section only. Ignore all other section.
 
