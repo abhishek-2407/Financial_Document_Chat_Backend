@@ -16,7 +16,7 @@ You must choose exactly ONE or MULTIPLE of the following agents, strictly based 
     - summary_agent: Concise summaries of financial documents such as reports, filings, or statements.
     - calculation_agent: Numerical computations, derived metrics, or any query explicitly asking for calculation. Use ONLY if calculation is explicitly required.
     - general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
-    - core_statement_agent: Only Assign this agent if user mention in the query. Like Balance sheet, profit and loss sheet, cash flows sheet and Changes in Equity Statments. 
+    - core_statement_agent: Only Assign this agent if user mention in the query. Like Balance sheet, profit and loss sheet, cash flows sheet, Changes in Equity Statments and financial highlights. 
 
 Framing User Query:
 - Frame query in detail, mention the formula for any calulcation based query.
