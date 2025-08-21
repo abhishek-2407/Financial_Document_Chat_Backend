@@ -161,3 +161,112 @@ async def retrieve_chunks(
             "status_code" : 500,
             "message" : "failed", 
         }
+        
+
+def retrieve_chunks_sync(
+            user_query: str = "" ,
+            file_id_list : List[str] = [], 
+            top_k: int = 10, 
+            page_list: List[int] = [] , 
+            statement_type : List[str] = [], 
+            is_financial_statement : str = None,
+            notes : str = None,
+            core_statements : str = None
+            ) -> Dict[str, Any]:
+    """
+    Asynchronously retrieves chunks from the RAG vector store and uses OpenAI to respond.
+
+    Args:
+        query (str): The user query.
+        collection_name (str): The name of the collection to query.
+
+    Returns:
+        Dict[str, Any]: The retrieved chunks and response.
+    """
+    try:
+        
+        
+        
+        logging.info(f"top k : {top_k}, Page_number : {page_list}, statement_type : {statement_type}, is_financial_statement : {is_financial_statement}, notes : {notes}, core_statements : {core_statements}")
+        client = connect_qdrant()
+        vectorstore = QdrantVectorStore(
+            client=client,
+            collection_name=collection_name,
+            embedding=embeddings,
+        )
+        
+        logging.info(f"file id list : {file_id_list}")
+        
+        filter_condition = [
+                    qdrant_client.models.FieldCondition(
+                        key="metadata.file_id",
+                        match=qdrant_client.models.MatchAny(any=file_id_list),
+                    ),
+                    # qdrant_client.models.FieldCondition(
+                    #     key="metadata.thread_id",
+                    #     match=qdrant_client.models.MatchValue(value=thread_id),
+                    # ),
+                    # qdrant_client.models.FieldCondition(
+                    #     key="metadata.type",
+                    #     match=qdrant_client.models.MatchValue(value="image"),
+                    # ),
+                ]
+        
+        if page_list:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.page_number",
+                        match=qdrant_client.models.MatchAny(any=page_list),
+                    ))
+            
+        if statement_type:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.statement_type",
+                        match=qdrant_client.models.MatchAny(any=statement_type),
+                    ))
+            
+        if is_financial_statement:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.is_financial_statement",
+                        match=qdrant_client.models.MatchValue(value=is_financial_statement),
+                    ))
+            
+        if notes:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.notes",
+                        match=qdrant_client.models.MatchValue(value=notes),
+                    ))
+            
+        if core_statements:
+            filter_condition.append(
+                qdrant_client.models.FieldCondition(
+                        key="metadata.core_statements",
+                        match=qdrant_client.models.MatchValue(value=core_statements),
+                    ))
+            
+        results = vectorstore.similarity_search(
+            user_query,
+            k=top_k,
+            filter=qdrant_client.models.Filter(
+                must=filter_condition,
+            ),
+        )
+        
+        response = {
+            "status_code": 200,
+            "message": "success",
+            "chunks": results,
+        }
+        # logging.info(f"Chunks response : {response}")
+        return response
+        
+    
+    except Exception as e:
+        logging.exception(f"Error retrieving chunks: {e}")
+        return  {
+            "status_code" : 500,
+            "message" : "failed", 
+        }

@@ -1,6 +1,6 @@
 
 
-from functions.query_rag import retrieve_chunks
+from functions.query_rag import retrieve_chunks,retrieve_chunks_sync
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Literal, Tuple
 from langchain_openai import AzureChatOpenAI,ChatOpenAI
@@ -11,7 +11,7 @@ import json
 import uuid
 import psycopg2
 from utils.postgres_connection import ConnectDB
-
+import logging
 
 load_dotenv()
 
@@ -24,14 +24,9 @@ def fetch_consolidated_chunks(query: str, file_id_list):
     
     user_query = f"consolidated {query}"
 
-    chunks = retrieve_chunks(
-        user_query=user_query, 
-        file_id_list=file_id_list, 
-        top_k=15, 
-        statement_type=["consolidated", "both"], 
-        core_statements="Yes",
-        is_financial_statement="Yes"
-    )
+    chunks = retrieve_chunks_sync(user_query=user_query, file_id_list=file_id_list, top_k=15, statement_type=["consolidated", "both"], is_financial_statement="Yes", notes=None, core_statements="Yes")
+    
+    # logging.info(f"chunks : {chunks}\n")
     
     class CheckResponse(BaseModel):
         successful_match: Literal["Yes", "No"] = Field(
@@ -46,7 +41,7 @@ def fetch_consolidated_chunks(query: str, file_id_list):
     
     # Initialize the LLM model outside the loop for efficiency
     json_model = AzureChatOpenAI(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         api_version=os.getenv("AZURE_OPENAI_VERSION"),
@@ -54,8 +49,9 @@ def fetch_consolidated_chunks(query: str, file_id_list):
     ).with_structured_output(CheckResponse)
     
     # Find the first matching chunk
-    for chunk in chunks:
-        json_model_output = json_model.invoke(chunk.text)
+    for chunk in chunks["chunks"]:
+        print(f"chunkks start : {chunk} : chunks end")
+        json_model_output = json_model.invoke(chunk.page_content)
         
         # Fixed: Check successful_match instead of core_statements
         if json_model_output.successful_match == "Yes":
@@ -67,7 +63,7 @@ def fetch_consolidated_chunks(query: str, file_id_list):
 def fetch_standalone_chunks(query: str, file_id_list):
     
     user_query = f"standalone {query}"
-    chunks = retrieve_chunks(
+    chunks = retrieve_chunks_sync(
         user_query=user_query, 
         file_id_list=file_id_list, 
         top_k=15, 
@@ -97,8 +93,8 @@ def fetch_standalone_chunks(query: str, file_id_list):
     ).with_structured_output(CheckResponse)
     
     # Find the first matching chunk
-    for chunk in chunks:
-        json_model_output = json_model.invoke(chunk.text)
+    for chunk in chunks["chunks"]:
+        json_model_output = json_model.invoke(chunk)
         
         # Fixed: Check successful_match instead of core_statements
         if json_model_output.successful_match == "Yes":
@@ -169,11 +165,8 @@ def safe_float(val):
 def insert_balance_sheet_items(data, company_name, data_type):
     """Insert balance sheet items into database"""
     try:
-        
-        
+                
         db = ConnectDB()
-
-        
 
         inserted_count = 0
         for item in data:
@@ -221,10 +214,11 @@ def process_consolidated_data(query: str, file_id_list, company_name: str, data_
     matching_chunk = fetch_consolidated_chunks(query, file_id_list)
     
     if not matching_chunk:
-        print("❌ No matching consolidated balance sheet found")
+        print(matching_chunk)
+        print(f"❌ No matching consolidated {query} found")
         return False
     
-    data = extract_table_data(matching_chunk.text)
+    data = extract_table_data(matching_chunk)
     
     if not data:
         print("❌ No data extracted from the chunk")
@@ -240,10 +234,10 @@ def process_standalone_data(query: str, file_id_list, company_name: str, data_ty
     matching_chunk = fetch_standalone_chunks(query, file_id_list)
     
     if not matching_chunk:
-        print("❌ No matching consolidated balance sheet found")
+        print(f"❌ No matching standalone {query} found")
         return False
     
-    data = extract_table_data(matching_chunk.text)
+    data = extract_table_data(matching_chunk)
     
     if not data:
         print("❌ No data extracted from the chunk")
