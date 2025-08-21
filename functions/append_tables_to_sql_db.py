@@ -24,7 +24,14 @@ def fetch_consolidated_chunks(query: str, file_id_list):
     
     user_query = f"consolidated {query}"
 
-    chunks = retrieve_chunks_sync(user_query=user_query, file_id_list=file_id_list, top_k=15, statement_type=["consolidated", "both"], is_financial_statement="Yes", notes=None, core_statements="Yes")
+    chunks = retrieve_chunks_sync(
+        user_query=user_query, 
+        file_id_list=file_id_list, 
+        top_k=15, 
+        statement_type=["consolidated", "both"], 
+        is_financial_statement="Yes", 
+        notes=None, 
+        core_statements="Yes")
     
     # logging.info(f"chunks : {chunks}\n")
     
@@ -55,6 +62,7 @@ def fetch_consolidated_chunks(query: str, file_id_list):
         
         # Fixed: Check successful_match instead of core_statements
         if json_model_output.successful_match == "Yes":
+            logging.info(chunk)
             return chunk  # Return the chunk directly
     
     # If no matching chunk found
@@ -94,10 +102,11 @@ def fetch_standalone_chunks(query: str, file_id_list):
     
     # Find the first matching chunk
     for chunk in chunks["chunks"]:
-        json_model_output = json_model.invoke(chunk)
+        json_model_output = json_model.invoke(chunk.page_content)
         
         # Fixed: Check successful_match instead of core_statements
         if json_model_output.successful_match == "Yes":
+            logging.info(chunk)
             return chunk  # Return the chunk directly
     
     # If no matching chunk found
