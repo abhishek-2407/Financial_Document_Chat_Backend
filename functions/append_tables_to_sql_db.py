@@ -41,6 +41,7 @@ def fetch_consolidated_chunks(query: str, file_id_list):
             description=(
                 f"Indicates whether the document is a consolidated {query}."
                 "✅ Mark 'Yes' only if:"
+                f"- (allow variations like 'Consolidated {query} (contd.)', 'Consolidated {query} – continued')."
                 "- The file match found to be same."
                 "- Before marking must check properly"
                 f"❌ Do NOT mark 'Yes' if {query} words appear casually in running text, table or footnotes."
@@ -88,6 +89,7 @@ def fetch_standalone_chunks(query: str, file_id_list):
             description=(
                 f"Indicates whether the document is a Standalone {query}."
                 "✅ Mark 'Yes' only if:"
+                f"- (allow variations like 'Consolidated {query} (contd.)', 'Consolidated {query} – continued')."
                 "- The file match found to be same."
                 "- Before marking must check properly"
                 f"❌ Do NOT mark 'Yes' if {query} words appear casually in running text, table or footnotes."
