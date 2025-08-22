@@ -55,18 +55,17 @@ def fetch_consolidated_chunks(query: str, file_id_list):
         max_tokens=1000
     ).with_structured_output(CheckResponse)
     
+    matched_chunks = []
     # Find the first matching chunk
     for chunk in chunks["chunks"]:
         print(f"chunkks start : {chunk} : chunks end")
         json_model_output = json_model.invoke(chunk.page_content)
-        
-        # Fixed: Check successful_match instead of core_statements
+
         if json_model_output.successful_match == "Yes":
             logging.info(chunk)
-            return chunk  # Return the chunk directly
-    
-    # If no matching chunk found
-    return None
+            matched_chunks.append(chunk)  # Return the chunk directly
+
+    return matched_chunks
 
 def fetch_standalone_chunks(query: str, file_id_list):
     
@@ -100,6 +99,7 @@ def fetch_standalone_chunks(query: str, file_id_list):
         max_tokens=1000
     ).with_structured_output(CheckResponse)
     
+    matched_chunks = []
     # Find the first matching chunk
     for chunk in chunks["chunks"]:
         json_model_output = json_model.invoke(chunk.page_content)
@@ -107,10 +107,11 @@ def fetch_standalone_chunks(query: str, file_id_list):
         # Fixed: Check successful_match instead of core_statements
         if json_model_output.successful_match == "Yes":
             logging.info(chunk)
-            return chunk  # Return the chunk directly
+            matched_chunks.append(chunk)
+            # return chunk  # Return the chunk directly
     
     # If no matching chunk found
-    return None
+    return matched_chunks
 
 
 def extract_table_data(chunk_text):
@@ -223,8 +224,8 @@ def process_consolidated_data(query: str, file_id_list, company_name: str, data_
     """Main function to process consolidated chunks and insert into database"""
     
     matching_chunk = fetch_consolidated_chunks(query, file_id_list)
-    
-    if not matching_chunk:
+
+    if  len(matching_chunk) < 1:
         print(matching_chunk)
         print(f"❌ No matching consolidated {query} found")
         return False
@@ -243,8 +244,8 @@ def process_standalone_data(query: str, file_id_list, company_name: str, data_ty
     """Main function to process consolidated chunks and insert into database"""
     
     matching_chunk = fetch_standalone_chunks(query, file_id_list)
-    
-    if not matching_chunk:
+
+    if  len(matching_chunk) < 1:
         print(f"❌ No matching standalone {query} found")
         return False
     
