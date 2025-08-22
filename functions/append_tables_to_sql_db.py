@@ -58,11 +58,11 @@ def fetch_consolidated_chunks(query: str, file_id_list):
     matched_chunks = []
     # Find the first matching chunk
     for chunk in chunks["chunks"]:
-        print(f"chunkks start : {chunk} : chunks end")
+        # print(f"chunkks start : {chunk} : chunks end")
         json_model_output = json_model.invoke(chunk.page_content)
 
         if json_model_output.successful_match == "Yes":
-            logging.info(chunk)
+            # logging.info(chunk)
             matched_chunks.append(chunk)  # Return the chunk directly
 
     return matched_chunks
@@ -106,7 +106,7 @@ def fetch_standalone_chunks(query: str, file_id_list):
         
         # Fixed: Check successful_match instead of core_statements
         if json_model_output.successful_match == "Yes":
-            logging.info(chunk)
+            # logging.info(chunk)
             matched_chunks.append(chunk)
             # return chunk  # Return the chunk directly
     
@@ -120,22 +120,28 @@ def extract_table_data(chunk_text):
     system_prompt = """
 You are a json creator, extract the data out of the tables.
 
-Based on Data just scrape the content of the table.
-You must provide the whole table.
+Go through the whole markdown chunk, from the table Fetch whole content.
+You must provide the whole table content here.
 
-Must Extract all the data from the table.
+Priority Instructions:
+**Must Extract all the data from the table.
+**Extract all the line items from the table.(Priority)
+**Extract Line Items from Multiple Tables also.
+**Provide in Json format only
 
+Do NO MISS any information from Table.
+
+Response Format:
 This is the json format for your response.
 [
 {
-    'particulars' : 'name',
-    'year' : '2024' in this format only,
-    'values' : 'actual value', (Numeric)
+    'particulars' : 'Each Line Items',
+    'year_and_values' : [ {
+        'year': 2024' in this format only, 'values' : 'actual value', (Numeric)}, so on
+        ]'
     'notes' : 'notes number if mentioned',
 }
 ]
-
-Provide in Json format only
 """
     
     user_prompt = f"Data : {chunk_text}"
@@ -186,21 +192,21 @@ def insert_balance_sheet_items(data, company_name, data_type, file_id, table_nam
         for item in data:
             try:
                 # Validate required fields
-                if not item.get("particulars") or not item.get("year"):
+                if not item.get("particulars") or not item.get("year_and_values"):
                     print(f"⚠️ Skipping item with missing particulars or year: {item}")
                     continue
                 
                 sql_query = [
                 {
                     "query": """
-                            INSERT INTO financial_statements (id, company_name, particulars, year, values, notes, data_type, file_id, table_name)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+                            INSERT INTO financial_statements (id, company_name, particulars, year_and_values, notes, data_type, file_id, table_name)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
                             """,
                     "data": (str(uuid.uuid4()),
                     company_name,
                     item.get("particulars"),
-                    int(item.get("year")),
-                    safe_float(item.get("values")),
+                    json.dumps(item.get("year_and_values")),
+                    # safe_float(item.get("values")),
                     item.get("notes") if item.get("notes") else None,
                     data_type,
                     file_id,

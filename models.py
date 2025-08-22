@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Coroutine
 from functions.append_tables_to_sql_db import process_consolidated_data, process_standalone_data, consolidated_user_query, standalone_user_query
 from sqlalchemy import Column, String, Boolean, DateTime, MetaData, Table, event, text, Enum,JSON, Numeric,Integer
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import enum
@@ -72,9 +72,8 @@ class FinancialStatements(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company_name = Column(String, nullable=False)
-    particulars = Column(String, nullable=False)
-    year = Column(Integer, nullable=False)
-    values = Column(Numeric)
+    particulars = Column(String)
+    year_and_values = Column(JSONB)
     notes = Column(String)
     data_type = Column(String)
     file_id = Column(UUID(as_uuid=True))
