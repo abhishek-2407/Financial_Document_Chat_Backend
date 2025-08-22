@@ -30,7 +30,7 @@ def list_particulars(file_id: str, table_name: str):
     """
     db = ConnectDB()
     query = f"""
-        SELECT particulars, values, year, company_name from financial_statements 
+        SELECT particulars, year_and_values, company_name from financial_statements 
         WHERE file_id = '{file_id}' AND table_name = '{table_name}';
     """
     try:

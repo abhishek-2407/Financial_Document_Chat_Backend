@@ -71,14 +71,13 @@ async def db_agent_stream(query: str, user_id: str, query_id: str, file_id_list 
         4. Provide the response to user.
 
 
-        The table you have to retrive from has the following schema
+        The postgres table you have to retrive from has the following schema
 
         CREATE TABLE financial_statements (
          id uuid NOT NULL,
          company_name varchar NOT NULL,
          particulars varchar NOT NULL,
-         "year" int4 NOT NULL,
-         "values" numeric NULL,
+         year_and_values JSON, --year will values
          notes varchar NULL,
          file_id varchar NOT NULL,
          data_type varchar NULL,
