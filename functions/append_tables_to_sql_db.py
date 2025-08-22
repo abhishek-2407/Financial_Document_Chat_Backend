@@ -21,7 +21,8 @@ standalone_user_query = [ "balance sheet", "cash flow statement", "profit and lo
 
 
 def fetch_consolidated_chunks(query: str, file_id_list):
-    
+
+    chunks_counter = 0
     user_query = f"consolidated {query}"
 
     chunks = retrieve_chunks_sync(
@@ -62,13 +63,16 @@ def fetch_consolidated_chunks(query: str, file_id_list):
         json_model_output = json_model.invoke(chunk.page_content)
 
         if json_model_output.successful_match == "Yes":
+            chunks_counter= chunks_counter+1
             # logging.info(chunk)
             matched_chunks.append(chunk)  # Return the chunk directly
-
+            
+    logging.info(f"Total chunks used : {chunks_counter}")
     return matched_chunks
 
 def fetch_standalone_chunks(query: str, file_id_list):
     
+    chunks_counter = 0
     user_query = f"standalone {query}"
     chunks = retrieve_chunks_sync(
         user_query=user_query, 
@@ -107,10 +111,13 @@ def fetch_standalone_chunks(query: str, file_id_list):
         # Fixed: Check successful_match instead of core_statements
         if json_model_output.successful_match == "Yes":
             # logging.info(chunk)
+            chunks_counter= chunks_counter+1
             matched_chunks.append(chunk)
             # return chunk  # Return the chunk directly
     
     # If no matching chunk found
+    
+    logging.info(f"Total chunks used : {chunks_counter}")
     return matched_chunks
 
 
