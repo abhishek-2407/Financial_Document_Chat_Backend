@@ -116,10 +116,14 @@ def fetch_standalone_chunks(query: str, file_id_list):
 
 def extract_table_data(chunk_text):
     """Extract table data from chunk text using OpenAI"""
-    system_prompt = """You are a json creator, extract the data out of the tables.
+    
+    system_prompt = """
+You are a json creator, extract the data out of the tables.
 
 Based on Data just scrape the content of the table.
 You must provide the whole table.
+
+Must Extract all the data from the table.
 
 This is the json format for your response.
 [
