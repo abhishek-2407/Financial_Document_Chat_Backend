@@ -246,15 +246,19 @@ def process_consolidated_data(query: str, file_id_list, company_name: str, data_
         print(matching_chunk)
         print(f"❌ No matching consolidated {query} found")
         return False
+
+    data = [] 
+    for chunk in matching_chunk:
+        data.append(extract_table_data(chunk))
     
-    data = extract_table_data(matching_chunk)
-    
-    if not data:
+    if len(data) < 1:
         print("❌ No data extracted from the chunk")
         return False
     
-    success = insert_balance_sheet_items(data, company_name, data_type=data_type, file_id = file_id_list[0], table_name=query)
-    return success
+    for d in data:
+        success = insert_balance_sheet_items(d, company_name, data_type=data_type, file_id = file_id_list[0], table_name=query)
+        if not success: return False
+    return True
 
 
 def process_standalone_data(query: str, file_id_list, company_name: str, data_type: str = "standalone"):
@@ -266,13 +270,16 @@ def process_standalone_data(query: str, file_id_list, company_name: str, data_ty
         print(f"❌ No matching standalone {query} found")
         return False
     
-    data = extract_table_data(matching_chunk)
+    data = [] 
+    for chunk in matching_chunk:
+        data.append(extract_table_data(chunk))
     
-    if not data:
+    if len(data) < 1:
         print("❌ No data extracted from the chunk")
         return False
     
-    success = insert_balance_sheet_items(data, company_name, data_type=data_type, file_id = file_id_list[0], table_name=query)
-    return success
-    
-    
+    for d in data:
+        success = insert_balance_sheet_items(d, company_name, data_type=data_type, file_id = file_id_list[0], table_name=query)
+        if not success: return False
+    return True
+
