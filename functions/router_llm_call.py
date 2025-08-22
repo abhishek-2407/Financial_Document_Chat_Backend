@@ -2,6 +2,14 @@
 
 from utils.llm_calling import call_openai
 
+
+# - revenue_analyst: Revenue analysis, revenue breakdown by segments, revenue trends over time, revenue forecasting.
+#     - expense_analyst: Expense analysis, cost structures, operational or departmental expenses, expense trends, cost optimization.
+#     - summary_agent: Concise summaries of financial documents such as reports, filings, or statements.
+#     - calculation_agent: Numerical computations, derived metrics, or any query explicitly asking for calculation. Use ONLY if calculation is explicitly required.
+#     - general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
+#     - core_statement_agent: Only Assign this agent if user mention in the query. Like Balance sheet, profit and loss sheet,
+
 def get_router_response(user_query: str, file_id_list) -> str:
     
     
@@ -11,13 +19,8 @@ You are a financial document query router. Your task is to analyze the user's qu
 
 You must choose exactly ONE or MULTIPLE of the following agents, strictly based on the query’s intent:
 
-    - revenue_analyst: Revenue analysis, revenue breakdown by segments, revenue trends over time, revenue forecasting.
-    - expense_analyst: Expense analysis, cost structures, operational or departmental expenses, expense trends, cost optimization.
-    - summary_agent: Concise summaries of financial documents such as reports, filings, or statements.
-    - calculation_agent: Numerical computations, derived metrics, or any query explicitly asking for calculation. Use ONLY if calculation is explicitly required.
-    - general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
-    - core_statement_agent: Only Assign this agent if user mention in the query. Like Balance sheet, profit and loss sheet, cash flows sheet, Changes in Equity Statments and financial highlights. 
-
+    - db_agent:Use this agent only
+     
 Framing User Query:
 - Frame query in detail, mention the formula for any calulcation based query.
 

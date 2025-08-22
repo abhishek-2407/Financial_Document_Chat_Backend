@@ -24,6 +24,7 @@ from agents.summary_agent import summary_agents_stream
 from agents.general_agent import general_agents_stream
 from agents.core_statement_agent import core_statement_agents_stream
 from agents.calculation_agent import calculation_agents_stream
+from agents.db_agent import db_agent_stream
 from functions.query_rag import retrieve_chunks
 
 
@@ -175,9 +176,9 @@ async def get_chat_response(chat_response: ChatResponse):
             continue
 
         logging.info(f"Triggered {agent_name} with prompt: {agent_prompt}")
-
-        if agent_name == "revenue_analyst":
-            agent_streams.append(revenue_agents_stream(
+        
+        if agent_name == "db_agent":
+            agent_streams.append(db_agent_stream(
                 query=agent_prompt,
                 user_id=chat_response.user_id,
                 query_id=chat_response.query_id,
@@ -185,50 +186,59 @@ async def get_chat_response(chat_response: ChatResponse):
                 notes=notes
             ))
 
-        elif agent_name == "expense_analyst":
-            agent_streams.append(expense_agents_stream(
-                query=agent_prompt,
-                user_id=chat_response.user_id,
-                query_id=chat_response.query_id,
-                file_id_list=agent_file_id,
-                notes=notes
-            ))
+        # if agent_name == "revenue_analyst":
+        #     agent_streams.append(revenue_agents_stream(
+        #         query=agent_prompt,
+        #         user_id=chat_response.user_id,
+        #         query_id=chat_response.query_id,
+        #         file_id_list=agent_file_id,
+        #         notes=notes
+        #     ))
+
+        # elif agent_name == "expense_analyst":
+        #     agent_streams.append(expense_agents_stream(
+        #         query=agent_prompt,
+        #         user_id=chat_response.user_id,
+        #         query_id=chat_response.query_id,
+        #         file_id_list=agent_file_id,
+        #         notes=notes
+        #     ))
             
-        elif agent_name == "core_statement_agent":
-            agent_streams.append(core_statement_agents_stream(
-                query=agent_prompt,
-                user_id=chat_response.user_id,
-                query_id=chat_response.query_id,
-                file_id_list=agent_file_id,
-                notes=notes
-            ))
+        # elif agent_name == "core_statement_agent":
+        #     agent_streams.append(core_statement_agents_stream(
+        #         query=agent_prompt,
+        #         user_id=chat_response.user_id,
+        #         query_id=chat_response.query_id,
+        #         file_id_list=agent_file_id,
+        #         notes=notes
+        #     ))
             
-        elif agent_name == "general_agent":
-            agent_streams.append(general_agents_stream(
-                query=agent_prompt,
-                user_id=chat_response.user_id,
-                query_id=chat_response.query_id,
-                file_id_list=agent_file_id,
-                notes=notes
-            ))
+        # elif agent_name == "general_agent":
+        #     agent_streams.append(general_agents_stream(
+        #         query=agent_prompt,
+        #         user_id=chat_response.user_id,
+        #         query_id=chat_response.query_id,
+        #         file_id_list=agent_file_id,
+        #         notes=notes
+        #     ))
 
-        elif agent_name == "summary_agent":
-            agent_streams.append(summary_agents_stream(
-                query=agent_prompt,
-                user_id=chat_response.user_id,
-                query_id=chat_response.query_id,
-                file_id_list=agent_file_id,
-                notes=notes
-            ))
+        # elif agent_name == "summary_agent":
+        #     agent_streams.append(summary_agents_stream(
+        #         query=agent_prompt,
+        #         user_id=chat_response.user_id,
+        #         query_id=chat_response.query_id,
+        #         file_id_list=agent_file_id,
+        #         notes=notes
+        #     ))
 
-        elif agent_name == "calculation_agent":
-            agent_streams.append(calculation_agents_stream(
-                query=agent_prompt,
-                user_id=chat_response.user_id,
-                query_id=chat_response.query_id,
-                file_id_list=agent_file_id,
-                notes=notes
-            ))
+        # elif agent_name == "calculation_agent":
+        #     agent_streams.append(calculation_agents_stream(
+        #         query=agent_prompt,
+        #         user_id=chat_response.user_id,
+        #         query_id=chat_response.query_id,
+        #         file_id_list=agent_file_id,
+        #         notes=notes
+        #     ))
 
     if not agent_streams:
         return {"error": "No valid agents found"}

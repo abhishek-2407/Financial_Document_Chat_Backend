@@ -91,6 +91,36 @@ Q4 FY05: Jan–Mar 2005
     return common_prompt
 
 
+def common_prompt_func_1():
+    now_india = datetime.now(ZoneInfo("Asia/Kolkata"))
+    current_date_month_year = now_india.strftime("%d-%b-%Y")
+
+   
+    common_prompt = f"""
+
+---
+Must Including a heading with company name in start of response.
+
+🔶 **Processing & Filtering Rules**:
+1. ✅ Distinguish between **Standalone** and **Consolidated** data — **never mix** the two. In case of  2. ✅ Use this for current date as reference: **{current_date_month_year}**
+
+---
+
+🔷 **India Financial Year & Quarter Mapping**:
+The financial year in India runs from April 1 to March 31.
+Example: FY05 refers to the period from April 1, 2004 to March 31, 2005.
+Quarter breakdown:
+Q1 FY05: Apr–Jun 2004
+Q2 FY05: Jul–Sep 2004
+Q3 FY05: Oct–Dec 2004
+Q4 FY05: Jan–Mar 2005
+
+🕒 Always interpret quarters in the context of India's fiscal calendar unless otherwise stated.
+    """
+
+    return common_prompt
+
+
 main_prompt = ChatPromptTemplate.from_messages(
     [
         (
