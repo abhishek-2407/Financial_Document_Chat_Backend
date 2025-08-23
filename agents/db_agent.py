@@ -116,6 +116,11 @@ async def db_agent_stream(query: str, user_id: str, query_id: str, file_id_list 
                     - **file_id_list**: {file_id_list}
                         - If this list contains more than one file id (e.g., ["xyz", "abc"]), process each file id individually by invoking the tool separately for each one. 
                   
+Response Format if user mention any year in the query:
+- Always provide data only for the year explicitly requested by the user.
+- If data for that specific year is not available, respond with “Missing information” instead of using values from other years.
+- Do not combine or merge data from different years in the same response. Each year’s data must remain isolated and accurate.
+- Ensure the final output strictly reflects the requested year’s values only.
                     """
                     
                 common_prompt = common_prompt_func_1()

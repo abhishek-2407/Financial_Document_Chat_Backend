@@ -428,6 +428,9 @@ If there are tables present, extract them in Proper Markdown table format only, 
 
 If there are any random images (pictures unrelated to charts/graphs/tables), summarize them in short paragraphs without adding any interpretation or assumption)
 
+Tables Instructions :
+- Ignore any row where the "Particulars" column is empty (blank or missing) and only numeric values are present.
+
 Important Instructions:
 - Do not miss any numbers.(Priority)
 - Do not round any number.(Priority)

@@ -45,6 +45,8 @@ def fetch_consolidated_chunks(query: str, file_id_list):
                 "- The file match found to be same."
                 "- Before marking must check properly"
                 f"❌ Do NOT mark 'Yes' if {query} words appear casually in running text, table or footnotes."
+                f"❌ Do NOT mark 'Yes' if Notes of {query} is found in heading section."
+
             )
         )      
     
@@ -93,6 +95,8 @@ def fetch_standalone_chunks(query: str, file_id_list):
                 "- The file match found to be same."
                 "- Before marking must check properly"
                 f"❌ Do NOT mark 'Yes' if {query} words appear casually in running text, table or footnotes."
+                f"❌ Do NOT mark 'Yes' if 'Notes of {query}' is found in heading section."
+
             )
         )      
     
@@ -139,6 +143,8 @@ Priority Instructions:
 **Provide in Json format only
 
 Do NO MISS any information from Table.
+
+**Ignore the rows if no particulars name is mentioned.
 
 Response Format:
 This is the json format for your response.
