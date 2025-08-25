@@ -391,31 +391,43 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
             )
         )
         notes: Literal["Yes", "No"] = Field(
-        description="""
-Indicates whether the document is a Notes to Financial Statements section.
+            description="""
+Decide ONLY from the page HEADER/TITLE (H1–H3 or the first heading-like line).
 
-✅ Mark 'Yes' only if the HEADER explicitly contains phrases like:
-    - 'Notes to Consolidated Financial Statements'
-    - 'Notes to Standalone Financial Statements'
-    - 'Notes to Financial Statements'
+Mark "Yes" ONLY if that header explicitly names a Notes section, e.g.:
+ - "NOTES – GROUP/CONSOLIDATED FINANCIAL STATEMENTS"
+ - "Explanatory Notes to the Accounts"
+ - "Notes to the Financial Statements" (any variant)
 
-❌ ATTENTION: Do NOT mark 'Yes' if 'Notes' appears casually in running text, table or footnotes.
+Otherwise mark "No", even if the word "Notes" appears anywhere else, including:
+ - cross-references (e.g., "notes are provided separately", "see notes 1–xx")
+ - table columns/footers (e.g., "Note 12 | …")
+ - phrases with "forming part of", "accompanying", "refer", "see"
+
+Precedence rule:
+  If the header indicates a primary statement (e.g., balance sheet, profit & loss,
+  cash flows), classify notes = "No" even if a notes reference appears on the page.
+
+Evidence requirement:
+  Output "Yes" only if you can quote the exact header words that prove it is a Notes section.
+  If you cannot quote such header words, output "No".
 """
-    )
+)
+        notes_reasoning: str = Field(description="Explain why you did or didn't categorize this as notes")
         core_statements: Literal["Yes", "No"] = Field(
         description="""
-Indicates whether the document is a CORE Financial Statements section or not.
+Return "Yes" ONLY if the page contains the actual financial statement itself
+(balance sheet, profit and loss, cash flow, changes in equity, or financial highlights table with numbers).
 
-✅ Mark 'Yes' only if the HEADER explicitly contains phrases like:
-    - 'Balance Sheet Statements'
-    - 'Profit and Loss Statements'
-    - 'Cash Flows Statements'
-   
-    Put Yes for these section only. Mark No for all other sections.
-
-❌ Do NOT mark 'Yes' if these words appears casually in running text, table or footnotes.
+Return "No" if the page only contains:
+- Notes forming part of financial statements
+- Descriptions, introductions, corporate information
+- Lists of subsidiaries, associates, or entities
+- References to financial statements without showing them
+- Any text without numeric tables of financial figures
 """
     )
+        core_statements_reasoning: str = Field(description="Explain why you did or didn't categorize this as core statements")
         
 
 #     prompt_template = f""" You are Document scrapper who extract the information from the given image.
@@ -522,7 +534,9 @@ Indicates whether the document is a CORE Financial Statements section or not.
             result["is_financial_statement"] = json_model_output.is_financial_statement
             result["statement_type"] = json_model_output.statement_type
             result["notes"] = json_model_output.notes
+            result["notes_reasoning"] = json_model_output.notes_reasoning
             result["core_statements"] = json_model_output.core_statements
+            result["core_statements_reasoning"] = json_model_output.core_statements_reasoning
 
             # prompt = ChatPromptTemplate.from_messages(messages)
             # chain = prompt | model | StrOutputParser()
@@ -592,9 +606,10 @@ Indicates whether the document is a CORE Financial Statements section or not.
                      "is_financial_statement" : summary["is_financial_statement"],
                      "statement_type" : summary["statement_type"],
                      "notes" : summary["notes"],
-                     "core_statements" : summary["core_statements"]
-                     
-                     }
+                     "notes_reasoning" : summary["notes_reasoning"],
+                     "core_statements" : summary["core_statements"],
+                     "core_statements_reasoning" : summary["core_statements_reasoning"],
+                    }
                  ) for i, summary in enumerate(image_summaries)
     ]
     
