@@ -418,31 +418,69 @@ Indicates whether the document is a CORE Financial Statements section or not.
     )
         
 
-    prompt_template = f""" You are Document scrapper who extract the information from the given image.
+#     prompt_template = f""" You are Document scrapper who extract the information from the given image.
     
-Extract text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
+# Extract text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
 
-If there are any charts, graphs, or bar plots, describe each of them specifically and accurately in short. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and extract the data into table file foramte, including labels, axes, legends, and data values if visible.
+# If there are any charts, graphs, or bar plots, describe each of them specifically and accurately in short. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and extract the data into table file foramte, including labels, axes, legends, and data values if visible.
 
-If there are tables present, extract them in Proper Markdown table format only, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
+# If there are tables present, extract them in Proper Markdown table format only, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
 
-If there are any random images (pictures unrelated to charts/graphs/tables), summarize them in short paragraphs without adding any interpretation or assumption)
+# If there are any random images (pictures unrelated to charts/graphs/tables), summarize them in short paragraphs without adding any interpretation or assumption)
 
-Tables Instructions :
-- Ignore any row where the "Particulars" column is empty (blank or missing) and only numeric values are present.
+# Tables Instructions :
+# - Ignore any row where the "Particulars" column is empty (blank or missing) and only numeric values are present.
 
-Important Instructions:
-- Do not miss any numbers.(Priority)
-- Do not round any number.(Priority)
-- Convert the chart and graph data in form of table which we can use later for retrieval.
-- Do not miss any information.
-- Do not add anything beyond the information visible in the image.
-- Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
-- Extract and organize everything systematically in section : 
-Headings > All extracted text > Tables (Markdown format only) > Graphs/Charts Description .
+# Important Instructions:
+# - Do not miss any numbers.(Priority)
+# - Do not round any number.(Priority)
+# - Convert the chart and graph data in form of table which we can use later for retrieval.
+# - Do not miss any information.
+# - Do not add anything beyond the information visible in the image.
+# - Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
+# - Extract and organize everything systematically in section : 
+# Headings > All extracted text > Tables (Markdown format only) > Graphs/Charts Description .
 
-Focus on precision and completeness in extraction. 
-"""
+# Focus on precision and completeness in extraction. 
+# """
+
+    prompt_template = """
+    Your task is to Only EXTRACT all text from the provided image and return it in **Markdown format**.
+
+    Key rules:
+
+    1. **Analyze Visual Layout:**
+    - First, analyze the overall visual layout of the image.
+    - If the image contains multiple distinct pages or sub-columns, split each section using the delimiters `<page>` and `</page>`.
+    - Even if it is a single page, it must be wrapped in `<page>`Content`</page>`.
+    - Ensure the content within each page is ordered logically from top to bottom and left to right.
+
+    2. **Tables:**
+    - If there are tables, format them properly using Markdown table syntax.
+    - Example:
+        `| Name | Age |`
+        `|--------|-----|`
+        `| Alice | 30 |`
+        `| Bob | 25 |`
+    - For complex tables with merged cells or multiple header rows, do your best to maintain the structure by aligning content in columns and rows.
+    - Do not use long horizontal rules (like multiple dashes or equals signs) to separate rows.
+    - If it's not possible to infer headers, just format it as-is in rows and columns using the pipe `|` syntax.
+
+    3. **Section and Hierarchy Splitting:**
+    - Label the hierarchy properly with Markdown format (e.g., `#`, `##`, `###` for headings).
+    - Use lists (`-` or `*`) to capture bullet points or numbered items.
+    - Capture the visual hierarchy exactly as it appears in the image.
+
+    4. **Formatting Cleanup:**
+    - Completely ignore decorative elements, horizontal separators (e.g., `-----`, `====`, `___`) and page numbers.
+    - Do not include any commentary, notes, or interpretation — just extract and format the raw content.
+
+    5. **Images and Charts:**
+    - If there is an image (like a photo), provide a one-sentence description.
+    - If it's a chart, summarize the key values or describe what the chart shows.
+    
+    Only Extract the information from the PAGE, Do not including anything else.
+    """
     
     def process_single_image(image_data: Tuple[int, str]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
@@ -459,8 +497,9 @@ Focus on precision and completeness in extraction.
             MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL")
             
             generation_config = {
-                    "max_output_tokens": 3500, 
-                }
+            "temperature": 0,
+            "max_output_tokens": 4000,
+        }
                             
             gemini_model = GenerativeModel(MEDIA_ANALYSIS_MODEL)
             response = gemini_model.generate_content(messages, generation_config=generation_config)
@@ -605,3 +644,68 @@ Focus on precision and completeness in extraction.
     return {
         "overall_summary": overall_summary
     }
+
+
+# async def ocr_with_gemini(image: Image.Image, model: str = "gemini-2.5-flash"):
+
+#     image_buf = image_to_base64(image, format="PNG")
+#     prompt = textwrap.dedent("""
+#     Your task is to extract all text from the provided image and return it in **Markdown format**.
+
+#     Key rules:
+
+#     1. **Analyze Visual Layout:**
+#     - First, analyze the overall visual layout of the image.
+#     - If the image contains multiple distinct pages or sub-columns, split each section using the delimiters `<page>` and `</page>`.
+#     - Even if it is a single page, it must be wrapped in `<page>`Content`</page>`.
+#     - Ensure the content within each page is ordered logically from top to bottom and left to right.
+
+#     2. **Tables:**
+#     - If there are tables, format them properly using Markdown table syntax.
+#     - Example:
+#         `| Name | Age |`
+#         `|--------|-----|`
+#         `| Alice | 30 |`
+#         `| Bob | 25 |`
+#     - For complex tables with merged cells or multiple header rows, do your best to maintain the structure by aligning content in columns and rows.
+#     - Do not use long horizontal rules (like multiple dashes or equals signs) to separate rows.
+#     - If it's not possible to infer headers, just format it as-is in rows and columns using the pipe `|` syntax.
+
+#     3. **Section and Hierarchy Splitting:**
+#     - Label the hierarchy properly with Markdown format (e.g., `#`, `##`, `###` for headings).
+#     - Use lists (`-` or `*`) to capture bullet points or numbered items.
+#     - Capture the visual hierarchy exactly as it appears in the image.
+
+#     4. **Formatting Cleanup:**
+#     - Completely ignore decorative elements, horizontal separators (e.g., `-----`, `====`, `___`) and page numbers.
+#     - Do not include any commentary, notes, or interpretation — just extract and format the raw content.
+
+#     5. **Images and Charts:**
+#     - If there is an image (like a photo), provide a one-sentence description.
+#     - If it's a chart, summarize the key values or describe what the chart shows.
+#     """)
+
+#     response = await google_geni_client().aio.models.generate_content_stream(
+#         model=model,
+#         contents=[
+#             Part.from_bytes(
+#                 data=image_buf.getvalue(),
+#                 mime_type="image/png",
+#             ),
+#             prompt
+#         ],
+#         config=GenerateContentConfig(
+#             temperature=0,
+#             thinking_config=ThinkingConfig(
+#                 thinking_budget=0,
+#             ),
+#             # max_output_tokens=4000,
+#         ),
+#     )
+
+#     final_response = ""
+
+#     async for res in response:
+#         final_response += res.text or ""
+    
+#     return final_response

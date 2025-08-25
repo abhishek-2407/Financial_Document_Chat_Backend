@@ -200,7 +200,7 @@ def create_rag(chunked_data: List[Dict[str, Any]], thread_id: str) -> Dict[str, 
         )
 
         # Process in batches of 15
-        batch_size = 20
+        batch_size = 30
         for i in range(0, len(chunked_data), batch_size):
             batch = chunked_data[i:i + batch_size]
             vectorstore.add_documents(batch)
