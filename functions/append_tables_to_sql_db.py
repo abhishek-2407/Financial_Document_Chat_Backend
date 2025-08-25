@@ -34,6 +34,7 @@ async def fetch_consolidated_chunks(query: str, file_id_list):
             description=(
                 f"Indicates whether the document is a consolidated {query}."
                 "✅ Mark 'Yes' only if:"
+                "Check Heading for the Document to identify the match"
                 f"- (allow variations like 'Consolidated {query} (contd.)', 'Consolidated {query} – continued')."
                 "- The file match found to be same."
                 "- Before marking must check properly"
