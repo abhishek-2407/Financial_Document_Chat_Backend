@@ -16,7 +16,10 @@ from enum import Enum
 
 from typing import List, Dict,Optional, Literal
 
+from sqlalchemy import delete, update
+
 # from agents.rag_agent import doc_agents_chat,doc_agents_chat_stream
+from functions import append_tables_to_sql_db
 from agents.expense_agent import expense_agents_stream
 from agents.revenue_agent import revenue_agents_stream
 from agents.comparative_agent import comparative_agents_stream
@@ -38,7 +41,7 @@ from knowledge_base.update_vdb_s3 import delete_file_and_update_db
 
 from functions.testing_multiagents import agentic_flow
 from functions.router_llm_call import get_router_response
-from models import FileAttribute  # Make sure this matches your model import
+from models import FileAttribute, FinancialStatements, append_tables_after_rag, append_tables_after_rag_listener  # Make sure this matches your model import
 from utils.db import get_db
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
@@ -797,5 +800,24 @@ async def retrieve_chunks_endpoint(payload: RetrieveChunksRequest):
     )
 
     
-        
- 
+class CreateDocTables(BaseModel):
+    file_id: str
+
+@router.post("/create-doc-tables")   
+async def retrieve_chunks_endpoint(payload: CreateDocTables, db: Session = Depends(get_db)):
+    # Get the record you want to delete
+    stmt = db.query(FinancialStatements).filter(
+        FinancialStatements.file_id == payload.file_id
+    ).all()
+    
+
+    # Delete the record
+    for s in stmt: db.delete(s)
+    db.commit()
+
+    record = db.query(UserS3Mapping).filter(
+        UserS3Mapping.file_id == payload.file_id
+    ).first()
+
+    await append_tables_after_rag(record)
+    return {"message": "Record deleted successfully"}
