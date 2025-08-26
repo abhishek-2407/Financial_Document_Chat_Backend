@@ -1,7 +1,10 @@
 import logging
+import asyncio
 import concurrent.futures
 from pathlib import Path
 from typing import Any, Coroutine
+
+from uvicorn.config import LOGGING_CONFIG
 from functions.append_tables_to_sql_db import process_consolidated_data, process_standalone_data, consolidated_user_query, standalone_user_query
 from sqlalchemy import Column, String, Boolean, DateTime, MetaData, Table, event, text, Enum,JSON, Numeric,Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -86,30 +89,22 @@ class FileAttribute(Base):
     file_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     generated_section = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-   
+
+async def append_tables_after_rag(target: UserS3Mapping):
+    if target.rag_status:
+        company_name = Path(target.file_name).stem
+
+        tasks = [
+            process_consolidated_data(q, [target.file_id], company_name)
+            for q in consolidated_user_query
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return results
+ 
 # @event.listens_for(UserS3Mapping, "after_delete")
 @event.listens_for(UserS3Mapping, "after_insert")
 @event.listens_for(UserS3Mapping, "after_update")
 def append_tables_after_rag_listener(mapper, connection, target: UserS3Mapping):
     table = UserS3Mapping.__table__
-
-    if target.rag_status == True:
-        company_name = Path(target.file_name).stem
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as cons_pool: 
-            # concurrent.futures.ThreadPoolExecutor(max_workers=1) as stand_pool:
-
-            cons_futures = [
-                cons_pool.submit(process_consolidated_data,
-                                q, [target.file_id], company_name)
-                for q in consolidated_user_query
-            ]
-
-            # stand_futures = [
-            #     stand_pool.submit(process_standalone_data,
-            #                     q, [target.file_id], company_name)
-            #     for q in standalone_user_query
-            # ]
-
-            # wait for everything inside the with-block
-            concurrent.futures.wait(cons_futures)
+    asyncio.run(append_tables_after_rag(target))
