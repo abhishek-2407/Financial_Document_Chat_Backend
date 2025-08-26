@@ -1,7 +1,7 @@
 import ollama
 import logging
 import ast
-from openai import AzureOpenAI
+from openai import AzureOpenAI, AsyncAzureOpenAI
 import os
 from dotenv import load_dotenv
 import json
@@ -152,6 +152,25 @@ def call_openai(system_prompt:str,user_prompt:str, model="gpt-4o-mini", temperat
     client = AzureOpenAI(api_key=os.getenv("AZURE_OPENAI_API_KEY"),azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),api_version=os.getenv("AZURE_OPENAI_VERSION"))
     
     response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=temperature,
+        max_tokens= 16000
+    )
+        
+    if parse_json:
+        return parse_llm_output(response.choices[0].message.content)
+        
+    else:
+        return response.choices[0].message.content
+
+async def call_openai_async(system_prompt:str,user_prompt:str, model="gpt-4o-mini", temperature=0, parse_json = False):
+    client = AsyncAzureOpenAI(api_key=os.getenv("AZURE_OPENAI_API_KEY"),azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),api_version=os.getenv("AZURE_OPENAI_VERSION"))
+    
+    response = await client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": system_prompt},
