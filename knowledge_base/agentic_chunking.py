@@ -463,6 +463,7 @@ Return "No" if the page only contains:
 
     1. **Analyze Visual Layout:**
     - First, analyze the overall visual layout of the image.
+    - Mark the heading of the page in `<heading>` and `</heading>` this should be outside of any `<page>` tags if all the page's have a common heading.
     - If the image contains multiple distinct pages or sub-columns, split each section using the delimiters `<page>` and `</page>`.
     - Even if it is a single page, it must be wrapped in `<page>`Content`</page>`.
     - Ensure the content within each page is ordered logically from top to bottom and left to right.
