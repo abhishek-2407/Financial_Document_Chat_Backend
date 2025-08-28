@@ -8,9 +8,13 @@ import json
 import re
 import logging
 from typing import Dict, Any
+from google import genai
 
 
 load_dotenv()
+
+os.environ["VERTEXAI_PROJECT_ID"] = os.getenv("VERTEXAI_PROJECT_ID", "abg-pulse-oab")
+google_genai_client = genai.Client(vertexai=True, project=os.getenv("VERTEXAI_PROJECT_ID"), location=os.getenv("VERTEXAI_LOCATION", "global"))
 
 def get_gemma_response(system_prompt, user_prompt):
     model_name = "gemma3:1b"
@@ -170,18 +174,22 @@ def call_openai(system_prompt:str,user_prompt:str, model="gpt-4o-mini", temperat
 async def call_openai_async(system_prompt:str,user_prompt:str, model="gpt-4o-mini", temperature=0, parse_json = False):
     client = AsyncAzureOpenAI(api_key=os.getenv("AZURE_OPENAI_API_KEY"),azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),api_version=os.getenv("AZURE_OPENAI_VERSION"))
     
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=temperature,
-        max_tokens= 16000
-    )
-        
-    if parse_json:
-        return parse_llm_output(response.choices[0].message.content)
-        
-    else:
-        return response.choices[0].message.content
+    try:
+
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=temperature,
+            max_tokens= 16000
+        )
+            
+        if parse_json:
+            return parse_llm_output(response.choices[0].message.content)
+            
+        else:
+            return response.choices[0].message.content
+    finally:
+        await client.close()

@@ -11,6 +11,7 @@ import subprocess
 import fitz
 import concurrent.futures
 from typing import List, Dict, Any, Literal, Tuple
+from google.genai.types import GenerateContentConfig, GenerationConfig, ThinkingConfig
 import numpy as np
 import cv2
 
@@ -25,6 +26,7 @@ from PIL import Image
 from pydantic import BaseModel, Field
 from vertexai.generative_models import GenerativeModel, Part
 import vertexai
+from utils.llm_calling import google_genai_client
 
 from pdf2image import convert_from_bytes
 # from IPython.display import Image, display
@@ -379,8 +381,21 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
 
     class ChunkMetadataStructure(BaseModel):
         is_financial_statement: Literal["Yes", "No"] = Field(
-            description="""Indicates whether the document is only financial statement or not."""
+            description="""
+Return "Yes" if the page is part of the official financial statements package.
+This includes ANY of the following, regardless of where they appear in the document:
+- Core financial statements (Balance Sheet, Profit and Loss, Cash Flow, Changes in Equity, Financial Highlights with numbers),
+- Notes to the Financial Statements (sections explicitly headed as Notes),
+- Supplementary schedules that are presented as part of the financial statements.
+
+Return "No" only if the page is outside the financial statements,
+such as:
+- introductory sections, management discussion and analysis (MD&A), corporate info,
+- directors’ report, governance, sustainability, or other narrative-only content,
+- appendices or miscellaneous text not labelled as part of the statements.
+"""
         )
+        is_financial_statement_reasoning: str = Field(description="Explain why you feel it is not a financial statment")
         statement_type: Literal["consolidated", "standalone", "both", "none"] = Field(
             description=(
                 "Specifies the type of financial statement. "
@@ -390,34 +405,23 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
                 "'none' if not a financial statement."
             )
         )
+        statement_type_reasoning: str = Field(description="Explain why you categorized the statement_type as you did")
         notes: Literal["Yes", "No"] = Field(
             description="""
-Decide ONLY from the page HEADER/TITLE (H1–H3 or the first heading-like line).
-
-Mark "Yes" ONLY if that header explicitly names a Notes section, e.g.:
- - "NOTES – GROUP/CONSOLIDATED FINANCIAL STATEMENTS"
+Mark "Yes" ONLY if the FIRST heading (H1–H3, '#', '##', '###') inside or outside the <page> tags explicitly names a Notes section, e.g.:
+ - "NOTES – CONSOLIDATED FINANCIAL STATEMENTS"
+ - "Notes to the Financial Statements"
  - "Explanatory Notes to the Accounts"
- - "Notes to the Financial Statements" (any variant)
 
-Otherwise mark "No", even if the word "Notes" appears anywhere else, including:
- - cross-references (e.g., "notes are provided separately", "see notes 1–xx")
- - table columns/footers (e.g., "Note 12 | …")
- - phrases with "forming part of", "accompanying", "refer", "see"
-
-Precedence rule:
-  If the header indicates a primary statement (e.g., balance sheet, profit & loss,
-  cash flows), classify notes = "No" even if a notes reference appears on the page.
-
-Evidence requirement:
-  Output "Yes" only if you can quote the exact header words that prove it is a Notes section.
-  If you cannot quote such header words, output "No".
+Mark "No" in ALL other cases, even if the body or tables mention notes 
+(e.g., "Notes forming part of..." or "refer Note 1").
 """
 )
         notes_reasoning: str = Field(description="Explain why you did or didn't categorize this as notes")
         core_statements: Literal["Yes", "No"] = Field(
         description="""
 Return "Yes" ONLY if the page contains the actual financial statement itself
-(balance sheet, profit and loss, cash flow, changes in equity, or financial highlights table with numbers).
+(Balance Sheet, P&L, Cash Flow, Changes in Equity, or officially titled Financial Highlights)
 
 Return "No" if the page only contains:
 - Notes forming part of financial statements
@@ -425,6 +429,7 @@ Return "No" if the page only contains:
 - Lists of subsidiaries, associates, or entities
 - References to financial statements without showing them
 - Any text without numeric tables of financial figures
+- Subsidiary AOC-1, notes, policies, or annexures.
 """
     )
         core_statements_reasoning: str = Field(description="Explain why you did or didn't categorize this as core statements")
@@ -463,7 +468,6 @@ Return "No" if the page only contains:
 
     1. **Analyze Visual Layout:**
     - First, analyze the overall visual layout of the image.
-    - Mark the heading of the page in `<heading>` and `</heading>` this should be outside of any `<page>` tags if all the page's have a common heading.
     - If the image contains multiple distinct pages or sub-columns, split each section using the delimiters `<page>` and `</page>`.
     - Even if it is a single page, it must be wrapped in `<page>`Content`</page>`.
     - Ensure the content within each page is ordered logically from top to bottom and left to right.
@@ -520,24 +524,26 @@ Return "No" if the page only contains:
                 "page_data": response.text,
             }
 
-            json_model = AzureChatOpenAI(
-                model="gpt-4o-mini",
-                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-                api_version=os.getenv("AZURE_OPENAI_VERSION"),
-                max_tokens=1000
-            ).with_structured_output(
-                ChunkMetadataStructure
+            json_model = google_genai_client.models.generate_content(
+                model="gemini-2.5-flash-lite",
+                contents=response.text,
+                config=GenerateContentConfig(
+                    temperature=0,
+                    response_mime_type="application/json",
+                    response_schema=ChunkMetadataStructure,
+                    thinking_config=ThinkingConfig(
+                        thinking_budget=0,
+                    ),
+                    # max_output_tokens=4000,
+                ),
             )
 
-            json_model_output = json_model.invoke(response.text)
+            json_model_output = json_model.parsed
 
-            result["is_financial_statement"] = json_model_output.is_financial_statement
-            result["statement_type"] = json_model_output.statement_type
-            result["notes"] = json_model_output.notes
-            result["notes_reasoning"] = json_model_output.notes_reasoning
-            result["core_statements"] = json_model_output.core_statements
-            result["core_statements_reasoning"] = json_model_output.core_statements_reasoning
+            result = {
+                **result,
+                **(json_model_output.model_dump() if json_model_output else {})
+            }
 
             # prompt = ChatPromptTemplate.from_messages(messages)
             # chain = prompt | model | StrOutputParser()
@@ -584,7 +590,6 @@ Return "No" if the page only contains:
                 
                 # logging.info(final_data)
                 
-                summary = summary
                 image_summaries[idx] = summary  
                 
             except Exception as e:
@@ -604,12 +609,8 @@ Return "No" if the page only contains:
                      "file_name": file_name,
                      "page_number": i + 1,
                      "type": "image",
-                     "is_financial_statement" : summary["is_financial_statement"],
-                     "statement_type" : summary["statement_type"],
-                     "notes" : summary["notes"],
-                     "notes_reasoning" : summary["notes_reasoning"],
-                     "core_statements" : summary["core_statements"],
-                     "core_statements_reasoning" : summary["core_statements_reasoning"],
+                        **{k: v for k, v in summary.items() if k != "page_data"},
+
                     }
                  ) for i, summary in enumerate(image_summaries)
     ]

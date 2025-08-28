@@ -28,3 +28,4 @@ weasyprint
 markdown
 
 vertexai
+google-genai
