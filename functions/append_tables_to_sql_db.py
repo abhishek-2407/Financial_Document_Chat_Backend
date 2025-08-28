@@ -51,7 +51,6 @@ async def fetch_consolidated_chunks(query: str, file_id_list):
     ).with_structured_output(CheckResponse)
 
     async def check_chunk(chunk):
-        logging.info("="*10 + "Chunk" + "="*10)
         json_model_output = await json_model.ainvoke(chunk.page_content)
         if json_model_output.successful_match == "Yes":
             return chunk
@@ -66,14 +65,14 @@ async def fetch_consolidated_chunks(query: str, file_id_list):
     return matched_chunks
 
 
-def fetch_standalone_chunks(query: str, file_id_list):
-    chunks_counter = 0
+async def fetch_standalone_chunks(query: str, file_id_list):
     user_query = f"standalone {query}"
-    chunks = retrieve_chunks_sync(
-        user_query=user_query, 
-        file_id_list=file_id_list, 
-        top_k=15, 
-        statement_type=["standalone", "both"], 
+
+    chunks = await retrieve_chunks(
+        user_query=user_query,
+        file_id_list=file_id_list,
+        top_k=15,
+        statement_type=["standalone", "both"],
         core_statements="Yes",
         is_financial_statement="Yes"
     )
@@ -83,11 +82,11 @@ def fetch_standalone_chunks(query: str, file_id_list):
             description=(
                 f"Indicates whether the document is a Standalone {query}."
                 "✅ Mark 'Yes' only if:"
-                f"- (allow variations like 'Consolidated {query} (contd.)', 'Consolidated {query} – continued')."
+                f"- (allow variations like 'Standalone {query} (contd.)', 'Standalone {query} – continued')."
                 "- The file match found to be same."
                 "- Before marking must check properly"
                 f"❌ Do NOT mark 'Yes' if {query} words appear casually in running text, table or footnotes."
-                f"❌ Do NOT mark 'Yes' if 'Notes of {query}' is found in heading section."
+                f"❌ Do NOT mark 'Yes' if Notes of {query} is found in heading section."
             )
         )      
 
@@ -98,15 +97,17 @@ def fetch_standalone_chunks(query: str, file_id_list):
         api_version=os.getenv("AZURE_OPENAI_VERSION"),
         max_tokens=1000
     ).with_structured_output(CheckResponse)
-    
-    matched_chunks = []
-    for chunk in chunks["chunks"]:
-        json_model_output = json_model.invoke(chunk.page_content)
+
+    async def check_chunk(chunk):
+        json_model_output = await json_model.ainvoke(chunk.page_content)
         if json_model_output.successful_match == "Yes":
-            chunks_counter += 1
-            matched_chunks.append(chunk)
-    
-    logging.info(f"Total chunks used : {chunks_counter}")
+            return chunk
+        return None
+
+    results = await asyncio.gather(*[check_chunk(chunk) for chunk in chunks["chunks"]])
+    matched_chunks = [res for res in results if res is not None]
+
+    logging.info(f"Total chunks used : {len(matched_chunks)}")
     return matched_chunks
 
 async def extract_table_data(chunk_text):
@@ -234,16 +235,31 @@ async def process_consolidated_data(query: str, file_id_list, company_name: str,
             return False
 
     return True
-def process_standalone_data(query: str, file_id_list, company_name: str, data_type: str = "standalone"):
-    matching_chunk = fetch_standalone_chunks(query, file_id_list)
-    if len(matching_chunk) < 1:
+
+async def process_standalone_data(query: str, file_id_list, company_name: str, data_type: str = "standalone"):
+    matching_chunk = await fetch_standalone_chunks(query, file_id_list)
+    if not matching_chunk:
         print(f"❌ No matching standalone {query} found")
         return False
-    
-    data = [extract_table_data(chunk) for chunk in matching_chunk if extract_table_data(chunk)]
-    if len(data) < 1:
+
+    # Concurrently extract table data
+    extracted_results = await asyncio.gather(
+        *[extract_table_data(chunk.page_content) for chunk in matching_chunk]
+    )
+
+    # Filter valid results
+    data = [d for d in extracted_results if d]
+
+    if not data:
         print("❌ No data extracted from the chunk")
         return False
-    
+
     for d in data:
-        success = insert_balance
+        success = insert_balance_sheet_items(
+            d, company_name, data_type=data_type, file_id=file_id_list[0], table_name=query
+        )
+        if not success:
+            return False
+
+    return True
+
