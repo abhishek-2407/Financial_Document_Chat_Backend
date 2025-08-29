@@ -12,7 +12,7 @@ import subprocess
 import fitz
 import concurrent.futures
 from typing import List, Dict, Any, Literal, Tuple
-from google.genai.types import GenerateContentConfig, GenerationConfig, ThinkingConfig, SafetySetting, HarmCategory, HarmBlockThreshold
+from google.genai.types import Content, GenerateContentConfig, GenerationConfig, ThinkingConfig, SafetySetting, HarmCategory, HarmBlockThreshold, Part
 import numpy as np
 import cv2
 
@@ -25,7 +25,7 @@ from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from PIL import Image
 from pydantic import BaseModel, Field
-from vertexai.generative_models import GenerativeModel, Part
+from vertexai.generative_models import GenerativeModel
 import vertexai
 from utils.llm_calling import google_genai_client
 
@@ -501,23 +501,53 @@ Return "No" if the page only contains:
             Guideline 5.8: If it is not possible to infer headers, just format it as-is in rows and columns using the pipe `|` syntax
     """)
     
-    def process_single_image(image_data: Tuple[int, str]) -> Tuple[int, str]:
+    def process_single_image(image_data: Tuple[int, bytes]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
         idx, image = image_data
         try:
             messages =  [
-                prompt_template,  # Text part
-                Part.from_data(
+                Part.from_bytes(
                     data=image,  # Raw bytes, not base64
                     mime_type="image/jpeg",
                 ),
+                prompt_template,
             ]
             
-            MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL")
-            
-                            
-            gemini_model = GenerativeModel(MEDIA_ANALYSIS_MODEL)
-            response = gemini_model.generate_content(messages, generation_config=generation_config)
+            MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-2.5-flash")
+
+            response = google_genai_client.models.generate_content(
+                model=MEDIA_ANALYSIS_MODEL,
+                contents=messages,
+                config=GenerateContentConfig(
+                    temperature=0,
+                    thinking_config=ThinkingConfig(
+                        thinking_budget=0,
+                    ),
+                    # max_output_tokens=8192, # if output is too long try with this
+                    safety_settings=[
+                        SafetySetting(
+                            category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+                            threshold=HarmBlockThreshold.BLOCK_NONE,
+                        ),
+                        SafetySetting(
+                            category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                            threshold=HarmBlockThreshold.BLOCK_NONE,
+                        ),
+                        SafetySetting(
+                            category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                            threshold=HarmBlockThreshold.BLOCK_NONE,
+                        ),
+                        SafetySetting(
+                            category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                            threshold=HarmBlockThreshold.BLOCK_NONE,
+                        ),
+                    ]
+                ),
+            )
+
+            from rich import print
+            from rich.markdown import Markdown
+            print(Markdown(response.text))
             result = {
                 "page_data": response.text,
             }
@@ -525,33 +555,31 @@ Return "No" if the page only contains:
             json_model = google_genai_client.models.generate_content(
                 model="gemini-2.5-flash-lite",
                 contents=response.text,
-                        config=GenerateContentConfig(
-            temperature=0,
-            thinking_config=ThinkingConfig(
-                thinking_budget=0,
-            ),
-            candidate_count=1, # Returns one best completion.
-            # max_output_tokens=8192, # if output is too long try with this
-            safety_settings=[
-                SafetySetting(
-                    category=HarmCategory.HARM_CATEGORY_HARASSMENT,
-                    threshold=HarmBlockThreshold.BLOCK_NONE,
+                config=GenerateContentConfig(
+                    temperature=0,
+                    thinking_config=ThinkingConfig(
+                        thinking_budget=0,
+                    ),
+                    # max_output_tokens=8192, # if output is too long try with this
+                    safety_settings=[
+                        SafetySetting(
+                            category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+                            threshold=HarmBlockThreshold.BLOCK_NONE,
+                        ),
+                        SafetySetting(
+                            category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                            threshold=HarmBlockThreshold.BLOCK_NONE,
+                        ),
+                        SafetySetting(
+                            category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                            threshold=HarmBlockThreshold.BLOCK_NONE,
+                        ),
+                        SafetySetting(
+                            category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                            threshold=HarmBlockThreshold.BLOCK_NONE,
+                        ),
+                    ]
                 ),
-                SafetySetting(
-                    category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                    threshold=HarmBlockThreshold.BLOCK_NONE,
-                ),
-                SafetySetting(
-                    category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                    threshold=HarmBlockThreshold.BLOCK_NONE,
-                ),
-                SafetySetting(
-                    category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                    threshold=HarmBlockThreshold.BLOCK_NONE,
-                ),
-            ]
-        ),
-
             )
 
             json_model_output = json_model.parsed
