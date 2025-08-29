@@ -1,4 +1,5 @@
 import os
+import textwrap
 import uuid
 import io
 import json
@@ -461,43 +462,44 @@ Return "No" if the page only contains:
 # Focus on precision and completeness in extraction. 
 # """
 
-    prompt_template = """
-    Your task is to Only EXTRACT all text from the provided image and return it in **Markdown format**.
+    prompt_template = textwrap.dedent("""
+    ## Role: PDF Image OCR Agent 
+    ## Objective: Extract all text from the provided image and return it in **Markdown format**.
 
-    Key rules:
+    ## Guidelines
+        Guideline 1: Understanding the visual layout
+            Guideline 1.1: Check if the image contains multiple distinct pages or sub-columns
+            Guideline 1.2: If it does contain multiple pages or sub-columns split each section using the delimiters `<page>` and `</page>`
+            Guideline 1.3: Even if it's a single page it must be wrapped in `<page>` and `</page>` delimiters.
+            Guideline 1.4: Ensure the content within each page is ordered logically from top to bottom and left to right.
 
-    1. **Analyze Visual Layout:**
-    - First, analyze the overall visual layout of the image.
-    - If the image contains multiple distinct pages or sub-columns, split each section using the delimiters `<page>` and `</page>`.
-    - Even if it is a single page, it must be wrapped in `<page>`Content`</page>`.
-    - Ensure the content within each page is ordered logically from top to bottom and left to right.
+        Guideline 2: Section and Hierarchy Splitting
+            Guideline 2.1: Label the hierarchy properly with Markdown format (e.g. `#`, `##`, `###` for headings)
+            Guideline 2.2: Use lists (`-` or `*` to capture bullet points and `1.`, `2.` to capture numbered items) 
+            Guideline 2.3: Captiure the visual heirarchy exactly as it appears in the image.
 
-    2. **Tables:**
-    - If there are tables, format them properly using Markdown table syntax.
-    - Example:
-        `| Name | Age |`
-        `|--------|-----|`
-        `| Alice | 30 |`
-        `| Bob | 25 |`
-    - For complex tables with merged cells or multiple header rows, do your best to maintain the structure by aligning content in columns and rows.
-    - Do not use long horizontal rules (like multiple dashes or equals signs) to separate rows.
-    - If it's not possible to infer headers, just format it as-is in rows and columns using the pipe `|` syntax.
+        Guideline 3: Formatting Cleanup
+            Guideline 3.1: Completely ignore decorative elements, horizontal separators (e.g. `-----`, `====`, `____`) and page numbers.
+            Guideline 3.2: Do not include any commentary, notes or interpretation of the content unless specified, just extract and format the raw content.
 
-    3. **Section and Hierarchy Splitting:**
-    - Label the hierarchy properly with Markdown format (e.g., `#`, `##`, `###` for headings).
-    - Use lists (`-` or `*`) to capture bullet points or numbered items.
-    - Capture the visual hierarchy exactly as it appears in the image.
+        Guideline 4: Images and Charts
+            Guideline 4.1: If there is a chart, summarize the key values or describe what the chart shows.
+            Guideline 4.2: If there is an image (like a photo), provide a one-sentence description.
 
-    4. **Formatting Cleanup:**
-    - Completely ignore decorative elements, horizontal separators (e.g., `-----`, `====`, `___`) and page numbers.
-    - Do not include any commentary, notes, or interpretation — just extract and format the raw content.
-
-    5. **Images and Charts:**
-    - If there is an image (like a photo), provide a one-sentence description.
-    - If it's a chart, summarize the key values or describe what the chart shows.
-    
-    Only Extract the information from the PAGE, Do not including anything else.
-    """
+        Guideline 5: Tables
+            Guideline 5.1: If there are tables format them properly using Markdown table syntax.
+                e.g.: `| Name | Age |`
+                        `|---|---|`
+                        `| Alice | 30 |`
+                        `| Bob | 25 |`
+            Guideline 5.2: Do not use long horizontal rules (like multiple dashes or equals signs) to separate rows.
+            Guideline 5.3: Ensure column alignment and preserve all numeric/text values exactly as shown.
+            Guideline 5.4: Maintain the original row order and hierarchy.
+            Guideline 5.5: If the table spans across multiple pages, merge it into one continuous table without losing information.
+            Guideline 5.6: If a row label is missing or left blank (common in subtotals/ totals) infer an appropriate label (e.g. "Sub Total", "Net Total", "Grant Total") based on the context of surrounding rows.
+            Guideline 5.7: If the document contains multiple data sets (e.g. Profit & Loss, Balance Sheet), extract each one separately with a clear heading.
+            Guideline 5.8: If it is not possible to infer headers, just format it as-is in rows and columns using the pipe `|` syntax
+    """)
     
     def process_single_image(image_data: Tuple[int, str]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
