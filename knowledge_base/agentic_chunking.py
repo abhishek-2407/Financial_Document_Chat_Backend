@@ -513,7 +513,7 @@ Return "No" if the page only contains:
                 prompt_template,
             ]
             
-            MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-2.5-flash")
+            MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-1.5-pro")
 
             response = google_genai_client.models.generate_content(
                 model=MEDIA_ANALYSIS_MODEL,

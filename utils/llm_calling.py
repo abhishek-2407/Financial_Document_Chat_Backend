@@ -14,7 +14,7 @@ from google import genai
 load_dotenv()
 
 os.environ["VERTEXAI_PROJECT_ID"] = os.getenv("VERTEXAI_PROJECT_ID", "abg-pulse-oab")
-google_genai_client = genai.Client(vertexai=True, project=os.getenv("VERTEXAI_PROJECT_ID"), location=os.getenv("VERTEXAI_LOCATION", "global"))
+google_genai_client = genai.Client(vertexai=True, project=os.getenv("VERTEXAI_PROJECT_ID"), location=os.getenv("VERTEXAI_LOCATION", "us-central1"))
 
 def get_gemma_response(system_prompt, user_prompt):
     model_name = "gemma3:1b"
