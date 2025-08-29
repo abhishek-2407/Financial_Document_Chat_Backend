@@ -545,9 +545,6 @@ Return "No" if the page only contains:
                 ),
             )
 
-            from rich import print
-            from rich.markdown import Markdown
-            print(Markdown(response.text))
             result = {
                 "page_data": response.text,
             }
