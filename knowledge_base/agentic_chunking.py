@@ -553,6 +553,8 @@ Return "No" if the page only contains:
                 model="gemini-2.5-flash-lite",
                 contents=response.text,
                 config=GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ChunkMetadataStructure,
                     temperature=0,
                     thinking_config=ThinkingConfig(
                         thinking_budget=0,
