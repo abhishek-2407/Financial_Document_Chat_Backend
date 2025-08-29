@@ -12,7 +12,7 @@ import subprocess
 import fitz
 import concurrent.futures
 from typing import List, Dict, Any, Literal, Tuple
-from google.genai.types import GenerateContentConfig, GenerationConfig, ThinkingConfig
+from google.genai.types import GenerateContentConfig, GenerationConfig, ThinkingConfig, SafetySetting, HarmCategory, HarmBlockThreshold
 import numpy as np
 import cv2
 
@@ -515,10 +515,6 @@ Return "No" if the page only contains:
             
             MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL")
             
-            generation_config = {
-            "temperature": 0,
-            "max_output_tokens": 4000,
-        }
                             
             gemini_model = GenerativeModel(MEDIA_ANALYSIS_MODEL)
             response = gemini_model.generate_content(messages, generation_config=generation_config)
@@ -529,15 +525,33 @@ Return "No" if the page only contains:
             json_model = google_genai_client.models.generate_content(
                 model="gemini-2.5-flash-lite",
                 contents=response.text,
-                config=GenerateContentConfig(
-                    temperature=0,
-                    response_mime_type="application/json",
-                    response_schema=ChunkMetadataStructure,
-                    thinking_config=ThinkingConfig(
-                        thinking_budget=0,
-                    ),
-                    # max_output_tokens=4000,
+                        config=GenerateContentConfig(
+            temperature=0,
+            thinking_config=ThinkingConfig(
+                thinking_budget=0,
+            ),
+            candidate_count=1, # Returns one best completion.
+            # max_output_tokens=8192, # if output is too long try with this
+            safety_settings=[
+                SafetySetting(
+                    category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+                    threshold=HarmBlockThreshold.BLOCK_NONE,
                 ),
+                SafetySetting(
+                    category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                    threshold=HarmBlockThreshold.BLOCK_NONE,
+                ),
+                SafetySetting(
+                    category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                    threshold=HarmBlockThreshold.BLOCK_NONE,
+                ),
+                SafetySetting(
+                    category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                    threshold=HarmBlockThreshold.BLOCK_NONE,
+                ),
+            ]
+        ),
+
             )
 
             json_model_output = json_model.parsed
