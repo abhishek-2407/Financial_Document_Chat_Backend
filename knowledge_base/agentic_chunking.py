@@ -476,7 +476,7 @@ Return "No" if the page only contains:
         Guideline 2: Section and Hierarchy Splitting
             Guideline 2.1: Label the hierarchy properly with Markdown format (e.g. `#`, `##`, `###` for headings)
             Guideline 2.2: Use lists (`-` or `*` to capture bullet points and `1.`, `2.` to capture numbered items) 
-            Guideline 2.3: Captiure the visual heirarchy exactly as it appears in the image.
+            Guideline 2.3: Do not use long horizontal rules (like multiple dashes or equals signs) to separate rows.
 
         Guideline 3: Formatting Cleanup
             Guideline 3.1: Completely ignore decorative elements, horizontal separators (e.g. `-----`, `====`, `____`) and page numbers.
@@ -513,7 +513,8 @@ Return "No" if the page only contains:
                 prompt_template,
             ]
             
-            MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-1.5-pro")
+            # MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-1.5-pro")
+            MEDIA_ANALYSIS_MODEL = "gemini-2.5-flash"
 
             response = google_genai_client.models.generate_content(
                 model=MEDIA_ANALYSIS_MODEL,
