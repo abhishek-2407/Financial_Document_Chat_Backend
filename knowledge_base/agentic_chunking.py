@@ -31,6 +31,7 @@ from utils.llm_calling import google_genai_client
 
 from pdf2image import convert_from_bytes
 # from IPython.display import Image, display
+from knowledge_base.vision_prompt import vision_prompt_template_v2
 
 
 load_dotenv()
@@ -227,25 +228,6 @@ def get_advance_chunk(base64_str: str, file_name: str, thread_id: str, file_id: 
         max_tokens=4000
     )
 
-    prompt_template = """You are Document scrapper who extract all the information from the given image.
-    
-    Extract all text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
-
-If there are any charts, graphs, or bar plots, describe each of them specifically and accurately. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and extract the data into table file foramte, including labels, axes, legends, and data values if visible.
-
-If there are tables present, extract them in Markdown table format, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
-
-If there are any random images (pictures unrelated to charts/graphs/tables), summarize them briefly in short paragraphs without adding any interpretation or assumption.
-
-Important Instructions:
-- Do not round any number.(Priority)
-- Convert the chart and graph data in form of table which we can use later for retrieval.
-- Do not miss any information.
-- Do not add anything beyond the information visible in the image.
-- Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
-- Extract and organize everything systematically: Headings > Full extracted text > Tables (Markdown format) > Graphs/Charts Description .
-
-Focus on precision and completeness in extraction."""
     
     def process_single_image(image_data: Tuple[int, str]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
@@ -255,7 +237,7 @@ Focus on precision and completeness in extraction."""
                 (
                     "user",
                     [
-                        {"type": "text", "text": prompt_template},
+                        {"type": "text", "text": vision_prompt_template_v2},
                         {
                             "type": "image_url",
                             "image_url": {"url": f"data:image/jpeg;base64,{image}"},
@@ -381,6 +363,24 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
     
 
     class ChunkMetadataStructure(BaseModel):
+        headings: str = Field(
+            description="""
+Fetch the main heading of the page content.
+Mention the multiple heading if exists.
+Mention the main heading in one line only, Do not keep it in single word.
+
+"""
+        )
+        
+        sub_headings: str = Field(
+            description="""
+Fetch the sub-heading of the page content.
+Mention the multiple sub-heading if exists.
+Mention the sub-heading in short only.
+
+"""
+        )
+        
         is_financial_statement: Literal["Yes", "No"] = Field(
             description="""
 Return "Yes" if the page is part of the official financial statements package.
@@ -436,71 +436,6 @@ Return "No" if the page only contains:
         core_statements_reasoning: str = Field(description="Explain why you did or didn't categorize this as core statements")
         
 
-#     prompt_template = f""" You are Document scrapper who extract the information from the given image.
-    
-# Extract text from the given image exactly as it appears, maintaining the original wording, spelling, capitalization, numbers, and formatting.
-
-# If there are any charts, graphs, or bar plots, describe each of them specifically and accurately in short. Identify the type of each graph (e.g., bar plot, line chart, pie chart) and extract the data into table file foramte, including labels, axes, legends, and data values if visible.
-
-# If there are tables present, extract them in Proper Markdown table format only, ensuring that all values are correctly mapped to their respective rows and columns. Add a proper heading and table name above each table, do not miss any information.
-
-# If there are any random images (pictures unrelated to charts/graphs/tables), summarize them in short paragraphs without adding any interpretation or assumption)
-
-# Tables Instructions :
-# - Ignore any row where the "Particulars" column is empty (blank or missing) and only numeric values are present.
-
-# Important Instructions:
-# - Do not miss any numbers.(Priority)
-# - Do not round any number.(Priority)
-# - Convert the chart and graph data in form of table which we can use later for retrieval.
-# - Do not miss any information.
-# - Do not add anything beyond the information visible in the image.
-# - Do not write statements like “There are no charts, graphs, or bar plots present in the image.”
-# - Extract and organize everything systematically in section : 
-# Headings > All extracted text > Tables (Markdown format only) > Graphs/Charts Description .
-
-# Focus on precision and completeness in extraction. 
-# """
-
-    prompt_template = textwrap.dedent("""
-    ## Role: PDF Image OCR Agent 
-    ## Objective: Extract all text from the provided image and return it in **Markdown format**.
-
-    ## Guidelines
-        Guideline 1: Understanding the visual layout
-            Guideline 1.1: Check if the image contains multiple distinct pages or sub-columns
-            Guideline 1.2: If it does contain multiple pages or sub-columns split each section using the delimiters `<page>` and `</page>`
-            Guideline 1.3: Even if it's a single page it must be wrapped in `<page>` and `</page>` delimiters.
-            Guideline 1.4: Ensure the content within each page is ordered logically from top to bottom and left to right.
-
-        Guideline 2: Section and Hierarchy Splitting
-            Guideline 2.1: Label the hierarchy properly with Markdown format (e.g. `#`, `##`, `###` for headings)
-            Guideline 2.2: Use lists (`-` or `*` to capture bullet points and `1.`, `2.` to capture numbered items) 
-            Guideline 2.3: Do not use long horizontal rules (like multiple dashes or equals signs) to separate rows.
-
-        Guideline 3: Formatting Cleanup
-            Guideline 3.1: Completely ignore decorative elements, horizontal separators (e.g. `-----`, `====`, `____`) and page numbers.
-            Guideline 3.2: Do not include any commentary, notes or interpretation of the content unless specified, just extract and format the raw content.
-
-        Guideline 4: Images and Charts
-            Guideline 4.1: If there is a chart, summarize the key values or describe what the chart shows.
-            Guideline 4.2: If there is an image (like a photo), provide a one-sentence description.
-
-        Guideline 5: Tables
-            Guideline 5.1: If there are tables format them properly using Markdown table syntax.
-                e.g.: `| Name | Age |`
-                        `|---|---|`
-                        `| Alice | 30 |`
-                        `| Bob | 25 |`
-            Guideline 5.2: Do not use long horizontal rules (like multiple dashes or equals signs) to separate rows.
-            Guideline 5.3: Ensure column alignment and preserve all numeric/text values exactly as shown.
-            Guideline 5.4: Maintain the original row order and hierarchy.
-            Guideline 5.5: If the table spans across multiple pages, merge it into one continuous table without losing information.
-            Guideline 5.6: If a row label is missing or left blank (common in subtotals/ totals) infer an appropriate label (e.g. "Sub Total", "Net Total", "Grant Total") based on the context of surrounding rows.
-            Guideline 5.7: If the document contains multiple data sets (e.g. Profit & Loss, Balance Sheet), extract each one separately with a clear heading.
-            Guideline 5.8: If it is not possible to infer headers, just format it as-is in rows and columns using the pipe `|` syntax
-    """)
-    
     def process_single_image(image_data: Tuple[int, bytes]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
         idx, image = image_data
@@ -510,39 +445,26 @@ Return "No" if the page only contains:
                     data=image,  # Raw bytes, not base64
                     mime_type="image/jpeg",
                 ),
-                prompt_template,
+                vision_prompt_template_v2,
             ]
             
             # MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-1.5-pro")
-            MEDIA_ANALYSIS_MODEL = "gemini-2.5-flash"
+            MEDIA_ANALYSIS_MODEL = "gemini-1.5-pro"
 
             response = google_genai_client.models.generate_content(
                 model=MEDIA_ANALYSIS_MODEL,
                 contents=messages,
                 config=GenerateContentConfig(
-                    temperature=0,
-                    thinking_config=ThinkingConfig(
-                        thinking_budget=0,
-                    ),
+                    temperature=0.3,
+                    top_p=1.0,
+                    top_k=1,
+                    candidate_count=1,
+                    max_output_tokens=8192,
+                    # thinking_config=ThinkingConfig(
+                    #     thinking_budget=0,
+                    # ),
                     # max_output_tokens=8192, # if output is too long try with this
-                    safety_settings=[
-                        SafetySetting(
-                            category=HarmCategory.HARM_CATEGORY_HARASSMENT,
-                            threshold=HarmBlockThreshold.BLOCK_NONE,
-                        ),
-                        SafetySetting(
-                            category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                            threshold=HarmBlockThreshold.BLOCK_NONE,
-                        ),
-                        SafetySetting(
-                            category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                            threshold=HarmBlockThreshold.BLOCK_NONE,
-                        ),
-                        SafetySetting(
-                            category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                            threshold=HarmBlockThreshold.BLOCK_NONE,
-                        ),
-                    ]
+                    
                 ),
             )
 
@@ -583,7 +505,10 @@ Return "No" if the page only contains:
             )
 
             json_model_output = json_model.parsed
-
+            
+            # heading = json_model_output['headings']
+            # logging.info(f"Headings : {heading}")
+            logging.info(f"json model : {json_model_output.model_dump() if json_model_output else {}}")
             result = {
                 **result,
                 **(json_model_output.model_dump() if json_model_output else {})

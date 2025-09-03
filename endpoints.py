@@ -570,7 +570,7 @@ async def delete_file(delete_file_request: DeleteFileRequest):
         }
         
 
-from functions.doc_summarizer import summarize_document,markdown_to_pdf_method3,markdown_to_pdf_and_upload_to_s3
+from functions.doc_summarizer_2 import summarize_document,markdown_to_pdf_method3,markdown_to_pdf_and_upload_to_s3
 
 @router.post("/summary-file")
 async def summary_file(summary_file_request: SummaryFileRequest):

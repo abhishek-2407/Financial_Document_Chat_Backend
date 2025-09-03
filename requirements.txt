@@ -24,8 +24,9 @@ pypdf2
 bcrypt
 python-jose
 
-weasyprint
+# weasyprint
 markdown
 
 vertexai
+reportlab
 google-genai

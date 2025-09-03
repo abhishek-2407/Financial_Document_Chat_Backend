@@ -3,8 +3,16 @@ from typing import List, Dict
 from functions.query_rag import retrieve_chunks
 from fastapi import Depends
 
-from weasyprint import HTML, CSS
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
 import markdown
+from markdown.extensions import codehilite
+import re
+from html import unescape
 import logging
 from models import SummaryReport, ReportStatus
 from datetime import datetime
@@ -20,6 +28,8 @@ from utils.s3_function import get_presigned_urls_from_s3
 import threading
 from models import FileAttribute  # Make sure this matches your model import
 from utils.db import get_db
+import tempfile
+import os
 
 db = SessionLocal()
 
@@ -283,81 +293,73 @@ async def summarize_document(thread_id: str, file_id_list: List, max_pages: int 
     
 def markdown_to_pdf_method3(markdown_text, output_path):
     """
-    Convert markdown to PDF using weasylogging.info
-    Requires: pip install weasylogging.info markdown
+    Convert markdown to PDF using ReportLab
+    Requires: pip install reportlab markdown
     """
-    # Convert markdown to HTML
-    html_content = markdown.markdown(markdown_text, extensions=['tables', 'fenced_code'])
-    
-    # Add CSS styling
-    styled_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            @page {{
-                size: A4;
-                margin: 2cm;
-            }}
-            body {{
-                font-family: 'DejaVu Sans', Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-            }}
-            h1, h2, h3, h4, h5, h6 {{
-                color: #2c3e50;
-                margin-top: 1.5em;
-                margin-bottom: 0.5em;
-            }}
-            code {{
-                background-color: #f8f8f8;
-                padding: 2px 4px;
-                border-radius: 3px;
-                font-family: 'Courier New', monospace;
-                font-size: 0.6em;
-            }}
-            pre {{
-                background-color: #f8f8f8;
-                padding: 15px;
-                border-radius: 5px;
-                overflow-x: auto;
-                border-left: 4px solid #3498db;
-            }}
-            blockquote {{
-                border-left: 4px solid #bdc3c7;
-                margin-left: 0;
-                padding-left: 15px;
-                color: #7f8c8d;
-            }}
-            table {{
-                border-collapse: collapse;
-                width: 100%;
-                margin: 1em 0;
-            }}
-            th, td {{
-                border: 1px solid #ddd;
-                padding: 8px;
-                text-align: left;
-            }}
-            th {{
-                background-color: #f2f2f2;
-                font-weight: bold;
-            }}
-            ul, ol {{
-                margin: 1em 0;
-                padding-left: 2em;
-            }}
-        </style>
-    </head>
-    <body>
-        {html_content}
-    </body>
-    </html>
-    """
-    
-    HTML(string=styled_html).write_pdf(output_path)
-    logging.info(f"PDF saved to: {output_path}")
+    try:
+        # Create PDF document
+        doc = SimpleDocTemplate(output_path, pagesize=A4, topMargin=1.5*inch, bottomMargin=1*inch)
+        
+        # Get styles
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        heading1_style = ParagraphStyle(
+            'CustomHeading1',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=12,
+            spaceBefore=12,
+            textColor=colors.HexColor('#2c3e50')
+        )
+        
+        heading2_style = ParagraphStyle(
+            'CustomHeading2',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=10,
+            spaceBefore=10,
+            textColor=colors.HexColor('#2c3e50')
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=6,
+            alignment=TA_JUSTIFY
+        )
+        
+        # Convert markdown to basic elements
+        story = []
+        lines = markdown_text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                story.append(Spacer(1, 6))
+                continue
+                
+            if line.startswith('# '):
+                story.append(Paragraph(line[2:], heading1_style))
+            elif line.startswith('## '):
+                story.append(Paragraph(line[3:], heading2_style))
+            elif line.startswith('### '):
+                story.append(Paragraph(line[4:], heading2_style))
+            else:
+                # Clean up markdown formatting for basic text
+                line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
+                line = re.sub(r'\*(.*?)\*', r'<i>\1</i>', line)
+                line = re.sub(r'`(.*?)`', r'<font name="Courier">\1</font>', line)
+                story.append(Paragraph(line, normal_style))
+        
+        # Build PDF
+        doc.build(story)
+        logging.info(f"PDF saved to: {output_path}")
+        
+    except Exception as e:
+        logging.error(f"Error converting markdown to PDF: {str(e)}")
+        raise
 
 
 def markdown_to_pdf_and_upload_to_s3(
@@ -652,8 +654,119 @@ def markdown_to_pdf_and_upload_to_s3(
 </html>
 """
         
-        logging.info("Converting HTML to PDF...")
-        pdf_bytes = HTML(string=styled_html).write_pdf()
+        logging.info("Converting HTML to PDF using ReportLab...")
+        
+        # Create PDF document in memory
+        from io import BytesIO
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*inch, bottomMargin=1*inch)
+        
+        # Get styles
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        heading1_style = ParagraphStyle(
+            'CustomHeading1',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=12,
+            spaceBefore=12,
+            textColor=colors.HexColor('#2c3e50')
+        )
+        
+        heading2_style = ParagraphStyle(
+            'CustomHeading2',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=10,
+            spaceBefore=10,
+            textColor=colors.HexColor('#2c3e50')
+        )
+        
+        heading3_style = ParagraphStyle(
+            'CustomHeading3',
+            parent=styles['Heading3'],
+            fontSize=12,
+            spaceAfter=8,
+            spaceBefore=8,
+            textColor=colors.HexColor('#34495e')
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=6,
+            alignment=TA_JUSTIFY
+        )
+        
+        # Convert markdown to basic elements
+        story = []
+        lines = markdown_text.split('\n')
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if not line:
+                story.append(Spacer(1, 6))
+                i += 1
+                continue
+                
+            if line.startswith('# '):
+                # Remove emojis and clean text
+                clean_text = re.sub(r'[^\w\s-]', '', line[2:]).strip()
+                if clean_text:
+                    story.append(Paragraph(clean_text, heading1_style))
+            elif line.startswith('## '):
+                clean_text = re.sub(r'[^\w\s-]', '', line[3:]).strip()
+                if clean_text:
+                    story.append(Paragraph(clean_text, heading2_style))
+            elif line.startswith('### '):
+                clean_text = re.sub(r'[^\w\s-]', '', line[4:]).strip()
+                if clean_text:
+                    story.append(Paragraph(clean_text, heading3_style))
+            elif line.startswith('|') and '|' in line:
+                # Handle table
+                table_data = []
+                while i < len(lines) and lines[i].strip().startswith('|'):
+                    row_data = [cell.strip() for cell in lines[i].strip().split('|')[1:-1]]
+                    if row_data and not all(cell in ['-', '--', '---'] for cell in row_data):
+                        table_data.append(row_data)
+                    i += 1
+                
+                if table_data:
+                    table = Table(table_data)
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                    ]))
+                    story.append(table)
+                    story.append(Spacer(1, 12))
+                i -= 1
+            else:
+                # Clean up markdown formatting for basic text
+                line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
+                line = re.sub(r'\*(.*?)\*', r'<i>\1</i>', line)
+                line = re.sub(r'`(.*?)`', r'<font name="Courier">\1</font>', line)
+                # Remove most emojis but keep basic formatting
+                line = re.sub(r'[^\w\s\-\.\,\!\?\:\;\(\)\[\]<>/\'"=]', '', line)
+                if line.strip():
+                    story.append(Paragraph(line, normal_style))
+            
+            i += 1
+        
+        # Build PDF
+        doc.build(story)
+        
+        # Get PDF bytes
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
         
         file_obj = FileObject(file_name, "application/pdf")
         
@@ -731,4 +844,3 @@ def markdown_to_pdf_and_upload_to_s3(
                 pass
         
         raise Exception(f"PDF generation and upload failed: {str(e)}")
-
