@@ -365,7 +365,7 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
     class ChunkMetadataStructure(BaseModel):
         headings: str = Field(
             description="""
-Fetch the main heading of the page content.
+Fetch the complete main heading of the page content.
 Mention the multiple heading if exists.
 Mention the main heading in one line only, Do not keep it in single word.
 
@@ -374,7 +374,7 @@ Mention the main heading in one line only, Do not keep it in single word.
         
         sub_headings: str = Field(
             description="""
-Fetch the sub-heading of the page content.
+Fetch the complete sub-heading of the page content.
 Mention the multiple sub-heading if exists.
 Mention the sub-heading in short only.
 
@@ -508,7 +508,7 @@ Return "No" if the page only contains:
             
             # heading = json_model_output['headings']
             # logging.info(f"Headings : {heading}")
-            logging.info(f"json model : {json_model_output.model_dump() if json_model_output else {}}")
+            final_meta_json =  json_model_output.model_dump() if json_model_output else {}
             result = {
                 **result,
                 **(json_model_output.model_dump() if json_model_output else {})
@@ -517,8 +517,9 @@ Return "No" if the page only contains:
             # prompt = ChatPromptTemplate.from_messages(messages)
             # chain = prompt | model | StrOutputParser()
             # summary = chain.invoke({})
+            
             logging.info(f"Successfully processed image {idx+1}/{len(images)}")
-            return idx, result
+            return idx, result, final_meta_json
             
         except Exception as e:
             error_msg = f"Error processing image {idx+1}: {str(e)}"
@@ -526,7 +527,8 @@ Return "No" if the page only contains:
             # Return error message as the summary for this image
             return idx, f"Error processing this image: {str(e)}"
     
-    image_summaries = [None] * len(images)  
+    image_summaries = [None] * len(images) 
+    document_content_page = [None] * len(images) 
     
     # Create a list of (index, image) tuples for processing
     indexed_images = list(enumerate(images))
@@ -536,7 +538,7 @@ Return "No" if the page only contains:
         
         for future in concurrent.futures.as_completed(future_to_image):
             try:
-                idx, summary = future.result()
+                idx, summary, final_meta_data = future.result()
                 
                 # print(idx, ": Summary", summary)
                 # try:
@@ -559,7 +561,8 @@ Return "No" if the page only contains:
                 
                 # logging.info(final_data)
                 
-                image_summaries[idx] = summary  
+                image_summaries[idx] = summary 
+                document_content_page[idx] = final_meta_data 
                 
             except Exception as e:
                 img_data = future_to_image[future]
@@ -583,6 +586,27 @@ Return "No" if the page only contains:
                     }
                  ) for i, summary in enumerate(image_summaries)
     ]
+    
+    logging.info(f'meta data : {document_content_page}')
+    
+    
+    simplified_list = [ {"heading": item["headings"], "subheading": item["sub_headings"], "page_number": idx + 1}
+                    for idx, item in enumerate(document_content_page)]
+    
+    extracted_doc_content_page = [
+        Document(page_content=f"{simplified_list}",
+                 metadata={
+                     "doc_id": 1234, 
+                     "thread_id": thread_id, 
+                     "file_id": file_id, 
+                     "file_name": file_name,
+                     "page_number": 0,
+                     "type": "content_page",
+                     "is_financial_statement" : "Yes"
+
+                    })]
+    
+    summary_img.extend(extracted_doc_content_page)
     
     try:
         text_chunks = []
