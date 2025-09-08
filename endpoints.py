@@ -41,7 +41,7 @@ from knowledge_base.update_vdb_s3 import delete_file_and_update_db
 
 from functions.testing_multiagents import agentic_flow
 from functions.router_llm_call import get_router_response
-from models import FileAttribute, FinancialStatements, append_tables_after_rag, append_tables_after_rag_listener  # Make sure this matches your model import
+from models import FileAttribute, FinancialStatements, append_tables_after_rag
 from utils.db import get_db
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
