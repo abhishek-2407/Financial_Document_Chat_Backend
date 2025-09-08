@@ -33,6 +33,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "python-jose>=3.5.0",
     "qdrant-client>=1.15.1",
+    "reportlab>=4.4.3",
     "rich>=14.1.0",
     "sqlalchemy>=2.0.43",
     "transformers>=4.55.2",
