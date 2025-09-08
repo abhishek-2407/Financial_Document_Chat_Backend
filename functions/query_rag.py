@@ -93,6 +93,10 @@ async def retrieve_chunks(
                         key="metadata.file_id",
                         match=qdrant_client.models.MatchAny(any=file_id_list),
                     ),
+                    qdrant_client.models.FieldCondition(
+                        key="metadata.type",
+                        match=qdrant_client.models.MatchValue(value="text"),
+                    )
                     # qdrant_client.models.FieldCondition(
                     #     key="metadata.thread_id",
                     #     match=qdrant_client.models.MatchValue(value=thread_id),
