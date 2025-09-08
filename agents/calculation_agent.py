@@ -7,6 +7,8 @@ import threading
 import uuid
 
 from dotenv import load_dotenv
+from langgraph.graph import MessagesState
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.prebuilt import create_react_agent
 from dotenv import load_dotenv
 from datetime import datetime
@@ -20,7 +22,10 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from tools.query_rag import fetch_relevant_response
 from tools.fetch_consolidated import fetch_consolidated_data
 from tools.fetch_standalone import fetch_standalone_data
-
+from langchain_core.messages.utils import (
+    trim_messages,
+    count_tokens_approximately
+)
 
 from prompts import calculation_agent_prompt, common_prompt_func
 
@@ -44,6 +49,18 @@ def _modify_state_messages(state: AgentState):
 
 tools = [fetch_relevant_response,fetch_standalone_data, fetch_consolidated_data]
 
+def pre_model_hook(state: MessagesState):
+    trimmed_messages = trim_messages(
+        state['messages'],
+        strategy="last",
+        token_counter=count_tokens_approximately,
+        max_tokens=10000,
+        start_on="system",
+        end_on=("human", "tool"),
+    )
+    
+    return {"llm_input_messages": trimmed_messages}
+
 async def calculation_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list, notes : str,timeout_: int = 55):
     try:
         #DB_URI = "postgres://username@host:port/database_name""
@@ -56,17 +73,20 @@ async def calculation_agents_stream(query: str, user_id: str, query_id: str, fil
                     max_size=5,
                     kwargs=connection_kwargs,
                 ) as pool:
-            checkpointer = AsyncPostgresSaver(pool)
+            # checkpointer = AsyncPostgresSaver(pool)
+            checkpointer = InMemorySaver()
 
             # NOTE: you need to call .setup() the first time you're using your checkpointer
-            await checkpointer.setup()
+            # await checkpointer.setup()
             langgraph_agent_executor = create_react_agent(
-                                                        model, 
-                                                        tools,
-                                                        prompt=calculation_agent_prompt
-                                                        # state_modifier=_modify_state_messages
-                                                        )
-            config = {"configurable": {"user_id": user_id}}
+                model, 
+                tools,
+                prompt=calculation_agent_prompt,
+                pre_model_hook=pre_model_hook,
+                checkpointer=checkpointer,
+                # state_modifier=_modify_state_messages,
+            )
+            config = {"configurable": {"user_id": user_id, "thread_id": "test"}}
             try:
                 query_id_prompt = f"""Use the following arguments for internal processing:  
                     - **query_id**: {query_id}  
@@ -89,7 +109,7 @@ async def calculation_agents_stream(query: str, user_id: str, query_id: str, fil
                     
                 common_prompt = common_prompt_func()
                 
-                async for msg, metadata in langgraph_agent_executor.astream({"messages": [("system", query_id_prompt), ("human", query), ("system", common_prompt)]}, config, stream_mode="messages"):
+                async for msg, metadata in langgraph_agent_executor.astream({"messages": [("system", query_id_prompt), ("system", common_prompt), ("human", query)]}, config, stream_mode="messages"):
                     token_usage_data = getattr(msg, 'usage_metadata', {})
                     if msg.content:
                         content = getattr(msg, 'content', "")
@@ -109,6 +129,7 @@ async def calculation_agents_stream(query: str, user_id: str, query_id: str, fil
 
             except Exception as error_:
                 logging.error(f"Got OpenAI error: {str(error_)}")
+                logging.error(error_)
                 # logs.status_code = error_.status_code
                 openai_error = json.loads(error_.response.content.decode('utf-8'))
                 # logs.content_filter_results = openai_error.get('error', {}).get('innererror', {}).get('content_filter_result', {})
