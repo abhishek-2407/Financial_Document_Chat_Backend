@@ -338,51 +338,27 @@ def get_advance_chunk(base64_str: str, file_name: str, thread_id: str, file_id: 
         "overall_summary": overall_summary
     }
     
-
-def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, file_id: str, file_type: str, extension: str) -> dict:
-    start_time = time.time()
-    # pdf_file = base64_to_file_object(base64_str)
-    chunks_base64_list = split_document_to_image_base64_pages(base64_str, file_type, extension)
-    logging.info(f"\nTime taken to split pdf to image: {time.time() - start_time}\n")
-
-    # Extract text directly from PDF
-    # try :
-    #     extracted_texts = extract_text_from_base64(base64_str=base64_str, file_type=file_type, extension=extension)
-    #     logging.info(f"Successfully extracted text from {len(extracted_texts)} pages")
-        
-    # except :
-    #     logging.info("Error extracting text from document")
-
-    images = chunks_base64_list
-
-    # model = AzureChatOpenAI(model="gpt-4o-mini",
-    #                         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    #                         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    #                         api_version=os.getenv("AZURE_OPENAI_VERSION"),
-    #                         max_tokens=4000)
-    
-
-    class ChunkMetadataStructure(BaseModel):
-        headings: str = Field(
-            description="""
+class ChunkMetadataStructure(BaseModel):
+    headings: str = Field(
+        description="""
 Fetch the complete main heading of the page content.
 Mention the multiple heading if exists.
 Mention the main heading in one line only, Do not keep it in single word.
 
 """
-        )
-        
-        sub_headings: str = Field(
-            description="""
+    )
+    
+    sub_headings: str = Field(
+        description="""
 Fetch the complete sub-heading of the page content.
 Mention the multiple sub-heading if exists.
 Mention the sub-heading in short only.
 
 """
-        )
-        
-        is_financial_statement: Literal["Yes", "No"] = Field(
-            description="""
+    )
+    
+    is_financial_statement: Literal["Yes", "No"] = Field(
+        description="""
 Return "Yes" if the page is part of the official financial statements package.
 This includes ANY of the following, regardless of where they appear in the document:
 - Core financial statements (Balance Sheet, Profit and Loss, Cash Flow, Changes in Equity, Financial Highlights with numbers),
@@ -395,32 +371,32 @@ such as:
 - directors’ report, governance, sustainability, or other narrative-only content,
 - appendices or miscellaneous text not labelled as part of the statements.
 """
+    )
+    is_financial_statement_reasoning: str = Field(description="Explain why you feel it is not a financial statment")
+    statement_type: Literal["consolidated", "standalone", "both", "none"] = Field(
+        description=(
+            "Specifies the type of financial statement. "
+            "'consolidated' for combined company statements, "
+            "'standalone' for individual company statements, "
+            "'both' if both types are present, "
+            "'none' if not a financial statement."
         )
-        is_financial_statement_reasoning: str = Field(description="Explain why you feel it is not a financial statment")
-        statement_type: Literal["consolidated", "standalone", "both", "none"] = Field(
-            description=(
-                "Specifies the type of financial statement. "
-                "'consolidated' for combined company statements, "
-                "'standalone' for individual company statements, "
-                "'both' if both types are present, "
-                "'none' if not a financial statement."
-            )
-        )
-        statement_type_reasoning: str = Field(description="Explain why you categorized the statement_type as you did")
-        notes: Literal["Yes", "No"] = Field(
-            description="""
+    )
+    statement_type_reasoning: str = Field(description="Explain why you categorized the statement_type as you did")
+    notes: Literal["Yes", "No"] = Field(
+        description="""
 Mark "Yes" ONLY if the FIRST heading (H1–H3, '#', '##', '###') inside or outside the <page> tags explicitly names a Notes section, e.g.:
- - "NOTES – CONSOLIDATED FINANCIAL STATEMENTS"
- - "Notes to the Financial Statements"
- - "Explanatory Notes to the Accounts"
+- "NOTES – CONSOLIDATED FINANCIAL STATEMENTS"
+- "Notes to the Financial Statements"
+- "Explanatory Notes to the Accounts"
 
 Mark "No" in ALL other cases, even if the body or tables mention notes 
 (e.g., "Notes forming part of..." or "refer Note 1").
 """
 )
-        notes_reasoning: str = Field(description="Explain why you did or didn't categorize this as notes")
-        core_statements: Literal["Yes", "No"] = Field(
-        description="""
+    notes_reasoning: str = Field(description="Explain why you did or didn't categorize this as notes")
+    core_statements: Literal["Yes", "No"] = Field(
+    description="""
 Return "Yes" ONLY if the page contains the actual financial statement itself
 (Balance Sheet, P&L, Cash Flow, Changes in Equity, or officially titled Financial Highlights)
 
@@ -432,9 +408,30 @@ Return "No" if the page only contains:
 - Any text without numeric tables of financial figures
 - Subsidiary AOC-1, notes, policies, or annexures.
 """
-    )
-        core_statements_reasoning: str = Field(description="Explain why you did or didn't categorize this as core statements")
+)
+    core_statements_reasoning: str = Field(description="Explain why you did or didn't categorize this as core statements")
+
+def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, file_id: str, file_type: str, extension: str) -> dict:
+    start_time = time.time()
+    # pdf_file = base64_to_file_object(base64_str)
+
+    # === Split document into page images ===
+    images = split_document_to_image_base64_pages(base64_str, file_type, extension)
+    logging.info(f"\nTime taken to split pdf to image: {time.time() - start_time}\n")
+
+    # Extract text directly from PDF
+    # try :
+    #     extracted_texts = extract_text_from_base64(base64_str=base64_str, file_type=file_type, extension=extension)
+    #     logging.info(f"Successfully extracted text from {len(extracted_texts)} pages")
         
+    # except :
+    #     logging.info("Error extracting text from document")
+
+    # model = AzureChatOpenAI(model="gpt-4o-mini",
+    #                         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    #                         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    #                         api_version=os.getenv("AZURE_OPENAI_VERSION"),
+    #                         max_tokens=4000)
 
     def process_single_image(image_data: Tuple[int, bytes]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
@@ -463,14 +460,8 @@ Return "No" if the page only contains:
                     # thinking_config=ThinkingConfig(
                     #     thinking_budget=0,
                     # ),
-                    # max_output_tokens=8192, # if output is too long try with this
-                    
                 ),
             )
-
-            result = {
-                "page_data": response.text,
-            }
 
             json_model = google_genai_client.models.generate_content(
                 model="gemini-2.5-flash-lite",
@@ -510,7 +501,7 @@ Return "No" if the page only contains:
             # logging.info(f"Headings : {heading}")
             final_meta_json =  json_model_output.model_dump() if json_model_output else {}
             result = {
-                **result,
+                "page_data": response.text,
                 **(json_model_output.model_dump() if json_model_output else {})
             }
 
@@ -563,12 +554,15 @@ Return "No" if the page only contains:
                 
                 image_summaries[idx] = summary 
                 document_content_page[idx] = final_meta_data 
+
                 
             except Exception as e:
                 img_data = future_to_image[future]
                 idx = img_data[0]
                 logging.error(f"Unexpected error with image {idx+1}: {str(e)}")
                 image_summaries[idx] = f"Unexpected error: {str(e)}"
+
+    logging.info("=== Processed all pages")
     
     # Add image summaries
     img_ids = [str(uuid.uuid4()) for _ in images]
@@ -587,11 +581,10 @@ Return "No" if the page only contains:
                  ) for i, summary in enumerate(image_summaries)
     ]
     
-    logging.info(f'meta data : {document_content_page}')
+    logging.info(f'=== Meta data : {document_content_page}')
     
     
-    simplified_list = [ {"heading": item["headings"], "subheading": item["sub_headings"], "page_number": idx + 1}
-                    for idx, item in enumerate(document_content_page)]
+    simplified_list = [{"heading": item["headings"], "subheading": item["sub_headings"], "page_number": idx + 1} for idx, item in enumerate(document_content_page)]
     
     extracted_doc_content_page = [
         Document(page_content=f"{simplified_list}",
@@ -608,53 +601,47 @@ Return "No" if the page only contains:
     
     summary_img.extend(extracted_doc_content_page)
     
+    logging.info("=== Splitting chunks")
     try:
         text_chunks = []
-        # text_splitter = RecursiveCharacterTextSplitter(
-        #     chunk_size=1000,
-        #     chunk_overlap=100,
-        #     length_function=len,
-        #     separators=["\n\n", "\n", ". ", " ", ""]
-        # )
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=100,
+            length_function=len,
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
         
-        # for i, full_text in enumerate(extracted_texts):
-        #     if not full_text:
-        #         continue
+        for i, img in enumerate(summary_img):
+            if not img:
+                continue
             
-        #     chunks = text_splitter.split_text(full_text)
+            chunks = text_splitter.split_text(img.page_content)
             
-        #     # Create a document for each chunk
-        #     for j, chunk in enumerate(chunks):
-        #         if not chunk.strip():
-        #             continue
+            # Create a document for each chunk
+            for j, chunk in enumerate(chunks):
+                if not chunk.strip():
+                    continue
                     
-        #         text_chunk_id = str(uuid.uuid4())
-        #         text_chunks.append(
-        #             Document(page_content=chunk.strip().replace("\n", ""),
-        #                     metadata={
-        #                         "doc_id": text_chunk_id,
-        #                         "thread_id": thread_id,
-        #                         "file_id": file_id,
-        #                         "file_name": file_name,
-        #                         "page_number": i + 1,
-        #                         "chunk_number": j + 1,
-        #                         "type": "text"
-        #                     })
-        #         )
-                
-        # overall_summary = summary_img + text_chunks
-                
-        overall_summary = summary_img
-                
-                
+                text_chunks.append(
+                    Document(
+                        page_content=chunk,
+                        metadata={
+                            **img.metadata,
+                            "type": "text",
+                            "chunk_index": j,
+                        }
+                    )
+                )
+        logging.info("=== Text chunks: {}".format(len(text_chunks)))        
+        summary_img.extend(text_chunks)
     except Exception as e:
         logging.info("Skipping text extraction")
+    finally: 
         overall_summary = summary_img
     
     return {
         "overall_summary": overall_summary
     }
-
 
 # async def ocr_with_gemini(image: Image.Image, model: str = "gemini-2.5-flash"):
 
