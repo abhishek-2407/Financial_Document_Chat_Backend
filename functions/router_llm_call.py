@@ -24,7 +24,6 @@ def get_router_response(user_query: str, file_id_list, version ) -> str:
     - summary_agent: Concise summaries of financial documents such as reports, filings, or statements.
     - calculation_agent: Numerical computations, derived metrics, or any query explicitly asking for calculation. Use ONLY if calculation is explicitly required.
     - general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
-    - core_statement_agent: Only Assign this agent if user mention in the query. Like Balance sheet, profit and loss sheet,
     """
     
     
