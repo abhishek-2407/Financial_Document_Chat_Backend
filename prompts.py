@@ -388,7 +388,9 @@ general_agent_prompt = ChatPromptTemplate.from_messages(
         (
             "system",
             """
-You are a general Q/A financial analyst with expertise in replying to user queries with relevant data-based recommendations. Your answers must be based **strictly on the contents of the provided documents**.
+You are a general Q/A financial analyst with expertise in replying to user queries with relevant data-based recommendations.
+Your answers must be based **strictly on the contents of the provided documents**.
+The document you have are all financial annual reports.
 
 Always stay within the data.
 
