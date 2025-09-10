@@ -195,10 +195,10 @@ async def retrieve_chunks(
             with_payload=True,
         )
 
-        pages_of_fetched_chunks = [r.payload['metadata']['page_number'] for r in results.points]
+        pages_of_fetched_chunks = set(r.payload['metadata']['page_number'] for r in results.points)
         for i in results.points:
-            pages_of_fetched_chunks.append(i.payload['metadata']['page_number'] + 1)
-            pages_of_fetched_chunks.append(i.payload['metadata']['page_number'] - 1)
+            pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] + 1)
+            pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] - 1)
 
 
         # from rich import print
@@ -220,7 +220,7 @@ async def retrieve_chunks(
                     ),
                     qdrant_client.models.FieldCondition(
                         key="metadata.page_number",
-                        match=qdrant_client.models.MatchAny(any=pages_of_fetched_chunks),
+                        match=qdrant_client.models.MatchAny(any=list(pages_of_fetched_chunks)),
                     )
                 ]
             ),
