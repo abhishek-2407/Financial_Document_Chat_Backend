@@ -40,7 +40,6 @@ def connect_qdrant():
         client = qdrant_client.QdrantClient(
             url=os.getenv("QDRANT_URL"),
             api_key=os.getenv("QDRANT_API_KEY")
-        
         )
         collection_config = qdrant_client.http.models.VectorParams(
             size=1536, 
@@ -78,13 +77,13 @@ async def retrieve_chunks(
         
         
         
-        logging.info(f"top k : {top_k}, Page_number : {page_list}, statement_type : {statement_type}, is_financial_statement : {is_financial_statement}, notes : {notes}, core_statements : {core_statements}")
+        logging.info(f"query: {user_query}, top k : {top_k}, Page_number : {page_list}, statement_type : {statement_type}, is_financial_statement : {is_financial_statement}, notes : {notes}, core_statements : {core_statements}")
         client = connect_qdrant()
-        vectorstore = QdrantVectorStore(
-            client=client,
-            collection_name=collection_name,
-            embedding=embeddings,
-        )
+        # vectorstore = QdrantVectorStore(
+        #     client=client,
+        #     collection_name=collection_name,
+        #     embedding=embeddings,
+        # )
         
         logging.info(f"file id list : {file_id_list}")
         
@@ -93,10 +92,10 @@ async def retrieve_chunks(
                         key="metadata.file_id",
                         match=qdrant_client.models.MatchAny(any=file_id_list),
                     ),
-                    qdrant_client.models.FieldCondition(
-                        key="metadata.type",
-                        match=qdrant_client.models.MatchValue(value="text"),
-                    )
+                    # qdrant_client.models.FieldCondition(
+                    #     key="metadata.type",
+                    #     match=qdrant_client.models.MatchValue(value="text"),
+                    # )
                     # qdrant_client.models.FieldCondition(
                     #     key="metadata.thread_id",
                     #     match=qdrant_client.models.MatchValue(value=thread_id),
@@ -142,20 +141,100 @@ async def retrieve_chunks(
                         match=qdrant_client.models.MatchValue(value=core_statements),
                     ))
             
-        results = await vectorstore.asimilarity_search(
-            user_query,
-            k=top_k,
-            filter=qdrant_client.models.Filter(
-                must=filter_condition,
+        # results = await vectorstore.asimilarity_search(
+        #     user_query,
+        #     k=top_k,
+        #     filter=qdrant_client.models.Filter(
+        #         must=filter_condition,
+        #     ),
+        # )
+
+        text_embedding_small_3 = AzureOpenAIEmbeddings(
+            model="text-embedding-3-small",
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_version=os.getenv("AZURE_OPENAI_VERSION"),
+            dimensions=1536,
+        )
+        bm25_embedding_model = qdrant_client.models.SparseTextEmbedding("Qdrant/bm25")
+        colbert_embedding_model = qdrant_client.models.LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
+
+
+        results = client.query_points(
+            limit=top_k,
+            collection_name=collection_name,
+            # query=next(colbert_embedding_model.query_embed(user_query)),
+            query=text_embedding_small_3.embed_query(user_query),
+            # using="colbert",
+            using="text-embedding-3-small",
+            # prefetch=[
+            #    qdrant_client.models.Prefetch(
+            #         query=text_embedding_small_3.embed_query(user_query),
+            #         using="text-embedding-3-small",
+            #         limit=20,
+            #     ),
+            #    qdrant_client.models.Prefetch(
+            #         query=qdrant_client.models.SparseVector(**next(bm25_embedding_model.query_embed(user_query)).as_object()),
+            #         using="bm25",
+            #         limit=20,
+            #     ),
+            # ],
+            query_filter=qdrant_client.models.Filter(
+                must=[
+                   *filter_condition,
+                    #qdrant_client.models.FieldCondition(
+                    #     key="metadata.page_number",
+                    #     match=qdrant_client.models.MatchAny(any=[324]),
+                    # ),
+                   qdrant_client.models.FieldCondition(
+                        key="metadata.type",
+                        match=qdrant_client.models.MatchValue(value="text"),
+                    ),
+                ]
+            ),
+            with_payload=True,
+        )
+
+        pages_of_fetched_chunks = [r.payload['metadata']['page_number'] for r in results.points]
+        for i in results.points:
+            pages_of_fetched_chunks.append(i.payload['metadata']['page_number'] + 1)
+            pages_of_fetched_chunks.append(i.payload['metadata']['page_number'] - 1)
+
+
+        # from rich import print
+        # print(pages_of_fetched_chunks)
+
+        results, _ = client.scroll(
+            collection_name=collection_name,
+            scroll_filter=qdrant_client.models.Filter(
+                must=[
+                   *filter_condition,
+                    qdrant_client.models.FieldCondition(
+                        key="metadata.file_id",
+                        match=qdrant_client.models.MatchAny(any=file_id_list),
+                    ),
+                    qdrant_client.models.FieldCondition(
+                        key="metadata.type",
+                        match=qdrant_client.models.MatchValue(value="image"),
+                        # match=qdrant_client.models.MatchValue(value="text"),
+                    ),
+                    qdrant_client.models.FieldCondition(
+                        key="metadata.page_number",
+                        match=qdrant_client.models.MatchAny(any=pages_of_fetched_chunks),
+                    )
+                ]
             ),
         )
         
         response = {
             "status_code": 200,
             "message": "success",
-            "chunks": results,
+            # "chunks": [result.payload for result in results.points],
+            "chunks": [result.payload for result in results],
+            # "chunks": results,
         }
-        # logging.info(f"Chunks response : {response}")
+        logging.info(f"Chunks response : {len(response)}")
+        # logging.info(f"No of chunks retrieved: {len(results.points)}")
         return response
         
     
@@ -234,7 +313,7 @@ def retrieve_chunks_sync(
             filter_condition.append(
                 qdrant_client.models.FieldCondition(
                         key="metadata.is_financial_statement",
-                        match=qdrant_client.models.MatchValue(value=is_financial_statement),
+                        match=qdrant_client.models.MatchValue(value=is_financial_statement.value()),
                     ))
             
         if notes:

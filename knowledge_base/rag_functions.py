@@ -166,14 +166,26 @@ def check_and_create_collection(collection_name:str, size: int = 1536):
         print("No collection found")
     
     
-    collection_config = qdrant_client.http.models.VectorParams(
-            size=size, 
-            distance=qdrant_client.http.models.Distance.COSINE
-            )
     client.create_collection(
-            collection_name=collection_name,
-            vectors_config=collection_config
-        )
+        collection_name=collection_name,
+        vectors_config={
+            "text-embedding-3-small": qdrant_client.models.VectorParams(
+                size=1536,
+                distance=qdrant_client.models.Distance.COSINE
+            ),
+            "colbert": qdrant_client.models.VectorParams(
+                size=128,
+                distance=qdrant_client.models.Distance.COSINE,
+                multivector_config=qdrant_client.models.MultiVectorConfig(
+                    comparator=qdrant_client.models.MultiVectorComparator.MAX_SIM
+                ),
+                hnsw_config=qdrant_client.models.HnswConfigDiff(m=0)  # Disable HNSW for reranking
+            )
+        },
+        sparse_vectors_config={
+            "bm25": qdrant_client.models.SparseVectorParams(modifier=qdrant_client.models.Modifier.IDF)
+        }
+    )
     
 # RAG Utilities
 def create_rag(chunked_data: List[Dict[str, Any]], thread_id: str) -> Dict[str, str]:
@@ -214,7 +226,7 @@ def create_rag(chunked_data: List[Dict[str, Any]], thread_id: str) -> Dict[str, 
         return {"collection_name": collection_name, "vectorstore_status": "failed"}
 
 
-async def retrieve_chunks(user_query: str, thread_id : str ,file_id_list : List[str],query_id : str, page_list: List[str] = [] , top_k: int = 4) -> Dict[str, Any]:
+async def retrieve_chunks(query: str, thread_id : str ,file_id_list : List[str],query_id : str, page_list: List[str] = [] , top_k: int = 4) -> Dict[str, Any]:
     """
     Asynchronously retrieves chunks from the RAG vector store and uses OpenAI to respond.
 
@@ -229,7 +241,7 @@ async def retrieve_chunks(user_query: str, thread_id : str ,file_id_list : List[
         
         threading.Thread(
             target=start_background_logging,
-            args=(query_id, user_query, thread_id, page_list, file_id_list),
+            args=(query_id, query, thread_id, page_list, file_id_list),
             daemon=True  
         ).start()
         
@@ -261,22 +273,70 @@ async def retrieve_chunks(user_query: str, thread_id : str ,file_id_list : List[
         if page_list:
             filter_condition.append(
                 qdrant_client.models.FieldCondition(
-                        key="metadata.page_number",
-                        match=qdrant_client.models.MatchAny(any=page_list),
-                    ))
+                    key="metadata.page_number",
+                    match=qdrant_client.models.MatchAny(any=page_list),
+                )
+            )
         
-        results = await vectorstore.asimilarity_search(
-            user_query,
-            k=top_k,
-            filter=qdrant_client.models.Filter(
-                must=filter_condition,
+        # results = await vectorstore.asimilarity_search(
+        #     user_query,
+        #     k=top_k,
+        #     filter=qdrant_client.models.Filter(
+        #         must=filter_condition,
+        #     ),
+        # )
+        text_embedding_small_3 = AzureOpenAIEmbeddings(
+            model="text-embedding-3-small",
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_version=os.getenv("AZURE_OPENAI_VERSION"),
+            dimensions=1536,
+        )
+        bm25_embedding_model = qdrant_client.models.SparseTextEmbedding("Qdrant/bm25")
+        colbert_embedding_model = qdrant_client.models.LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
+
+
+        results, _ = client.query_points(
+            limit=5,
+            collection_name=collection_name,
+            query=next(colbert_embedding_model.query_embed(query)),
+            using="colbert",
+            prefetch=[
+               qdrant_client.models.Prefetch(
+                    query=text_embedding_small_3.embed_query(query),
+                    using="text-embedding-3-small",
+                    limit=20,
+                ),
+               qdrant_client.models.Prefetch(
+                    query=qdrant_client.models.SparseVector(**next(bm25_embedding_model.query_embed(query)).as_object()),
+                    using="bm25",
+                    limit=20,
+                ),
+            ],
+            query_filter=qdrant_client.models.Filter(
+                must=[
+                   *filter_condition,
+                   qdrant_client.models.FieldCondition(
+                        key="metadata.file_id",
+                        match=qdrant_client.models.MatchAny(any=file_id_list),
+                    ),
+                    #qdrant_client.models.FieldCondition(
+                    #     key="metadata.page_number",
+                    #     match=qdrant_client.models.MatchAny(any=[324]),
+                    # ),
+                   qdrant_client.models.FieldCondition(
+                        key="metadata.type",
+                        match=qdrant_client.models.MatchValue(value="text"),
+                    ),
+                ]
             ),
+            with_payload=True,
         )
         
         response = {
             "status_code": 200,
             "message": "success",
-            "chunks": results,
+            "chunks": [r.payload for r in results],
         }
 
         return response

@@ -463,9 +463,11 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
                 ),
             )
 
+            markdown_text = response.text.strip('```markdown').strip('```')
+
             json_model = google_genai_client.models.generate_content(
                 model="gemini-2.5-flash-lite",
-                contents=response.text,
+                contents=markdown_text,
                 config=GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=ChunkMetadataStructure,
@@ -501,7 +503,7 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
             # logging.info(f"Headings : {heading}")
             final_meta_json =  json_model_output.model_dump() if json_model_output else {}
             result = {
-                "page_data": response.text,
+                "page_data": markdown_text,
                 **(json_model_output.model_dump() if json_model_output else {})
             }
 
