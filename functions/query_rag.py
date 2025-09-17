@@ -198,11 +198,11 @@ async def retrieve_chunks(
 
         smaller_chunks = results.points
         pages_of_fetched_chunks = set(r.payload['metadata']['page_number'] for r in results.points)
-        logging.info(f"Initial pages fetched: {pages_of_fetched_chunks}")
-        for i in results.points:
-            pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] + 1)
-            pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] - 1)
-        logging.info(f"Populates pages fetched: {list(pages_of_fetched_chunks)}")
+        # logging.info(f"Initial pages fetched: {pages_of_fetched_chunks}")
+        # for i in results.points:
+        #     pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] + 1)
+        #     pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] - 1)
+        # logging.info(f"Populates pages fetched: {list(pages_of_fetched_chunks)}")
 
 
         # from rich import print
@@ -238,7 +238,7 @@ async def retrieve_chunks(
             "chunks": [result.payload for result in results],
             # "chunks": results,
         }
-        logging.info(f"Returning {len(results)} chunks out of {len(pages_of_fetched_chunks)}")
+        logging.info(f"Returning {len(results)} page chunks out of the original smaller chunks of {len(pages_of_fetched_chunks)}")
         # logging.info(f"No of chunks retrieved: {len(results.points)}")
         return response
         
