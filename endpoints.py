@@ -149,10 +149,11 @@ async def combined_stream(agent_streams):
 @router.post("/chat")
 async def get_chat_response(chat_response: ChatResponse):
     
-    notes = chat_response.notes
-    if notes == "Yes":
-        notes = None
-        
+    # notes = chat_response.notes
+    # if notes == "Yes":
+    #     notes = None
+    notes = None
+
     version = chat_response.version
     # logging.info(f"Notes section : {notes}")
     
