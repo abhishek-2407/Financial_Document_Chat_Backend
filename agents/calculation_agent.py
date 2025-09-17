@@ -32,11 +32,13 @@ from prompts import calculation_agent_prompt, common_prompt_func
 
 load_dotenv()
 
-model = AzureChatOpenAI(model="gpt-4o",
-                            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-                            api_version=os.getenv("AZURE_OPENAI_VERSION"),
-                            max_tokens=4000,temperature=0)
+model = AzureChatOpenAI(
+    model="gpt-4o",
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_version=os.getenv("AZURE_OPENAI_VERSION"),
+    temperature=0,
+)
 
 def filter_messages(messages: list):
     # This is very simple helper function which uses around 5 last queries as context window
@@ -47,7 +49,7 @@ def _modify_state_messages(state: AgentState):
 
     return calculation_agent_prompt.invoke({"messages": messages})
 
-tools = [fetch_relevant_response,fetch_standalone_data, fetch_consolidated_data]
+tools = [fetch_relevant_response, fetch_standalone_data, fetch_consolidated_data]
 
 def pre_model_hook(state: MessagesState):
     trimmed_messages = trim_messages(
