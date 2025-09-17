@@ -25,6 +25,7 @@ from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from PIL import Image
 from pydantic import BaseModel, Field
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from vertexai.generative_models import GenerativeModel
 import vertexai
 from utils.llm_calling import google_genai_client
@@ -526,43 +527,56 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
     # Create a list of (index, image) tuples for processing
     indexed_images = list(enumerate(images))
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-        future_to_image = {executor.submit(process_single_image, img_data): img_data for img_data in indexed_images}
-        
-        for future in concurrent.futures.as_completed(future_to_image):
-            try:
-                idx, summary, final_meta_data = future.result()
-                
-                # print(idx, ": Summary", summary)
-                # try:
-                #     match = re.search(r"```json\s*(\{.*?\})\s*```", summary, re.DOTALL)
-                #     if match:
-                #         json_str = match.group(1)
-                #         final_data = json.loads(json_str)
-                #         # print(final_data)
-                #
-                # except:
-                #
-                #     print(final_data)
-                #     final_data = {
-                #             "page_data" : "Unable to scrape this page", 
-                #             "is_financial_statement" : "No",
-                #             "statement_type" : "none"
-                #         }
-                #
-                #     print("No JSON found")
-                
-                # logging.info(final_data)
-                
-                image_summaries[idx] = summary 
-                document_content_page[idx] = final_meta_data 
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeRemainingColumn(),
+        transient=False,
+    ) as progress:
 
-                
-            except Exception as e:
-                img_data = future_to_image[future]
-                idx = img_data[0]
-                logging.error(f"Unexpected error with image {idx+1}: {str(e)}")
-                image_summaries[idx] = f"Unexpected error: {str(e)}"
+        overall_task = progress.add_task("Processing images...", total=len(indexed_images))
+
+        # Secondary progress bar with spinners
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("{task.description}"),
+            transient=True,
+        ) as spinners:
+
+            # Create spinner tasks per image
+            spinner_tasks = {
+                img_data[0]: spinners.add_task(
+                    description=f"Image {img_data[0]}",
+                    total=None
+                )
+                for img_data in indexed_images
+            }
+
+            # Submit and track futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+                future_to_idx = {
+                    executor.submit(process_single_image, img_data): img_data[0]
+                    for img_data in indexed_images
+                }
+
+                for future in concurrent.futures.as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+
+                    try:
+                        idx, summary, final_meta_data = future.result()
+
+                        image_summaries[idx] = summary 
+                        document_content_page[idx] = final_meta_data 
+
+                    except Exception as e:
+                        logging.error(f"Unexpected error with image {idx+1}: {str(e)}")
+                        image_summaries[idx] = f"Unexpected error: {str(e)}"
+
+                    # Hide spinner for this task
+                    spinners.update(spinner_tasks[idx], completed=1, visible=False)
+                    progress.advance(overall_task)
+
 
     logging.info("=== Processed all pages")
     
