@@ -19,12 +19,9 @@ def get_router_response(user_query: str, file_id_list, version ) -> str:
         
     else :
         agents_list = """
-    - revenue_analyst: Revenue analysis, revenue breakdown by segments, revenue trends over time, revenue forecasting.
-    - expense_analyst: Expense analysis, cost structures, operational or departmental expenses, expense trends, cost optimization.
-    - summary_agent: Concise summaries of financial documents such as reports, filings, or statements.
-    - calculation_agent: Numerical computations, derived metrics, or any query explicitly asking for calculation. Use ONLY if calculation is explicitly required.
-    - general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
-    """
+- calculation_agent: Numerical computations, derived metrics, or any query explicitly asking for calculation. Use ONLY if calculation is explicitly required.
+- general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
+"""
     
     
     system_prompt = f"""
@@ -35,9 +32,10 @@ You must choose exactly ONE or MULTIPLE of the following agents, strictly based 
     {agents_list}
 
 Rules:
-1. If the query contains abbreviations, expand them to their full form in the prompt but also keep the short form.
-2. If user ask for mention any specific name then return json of that particular file and ignore others.
-3. If multiple file_ids are provided and the query is independent for each file (no cross-file comparison), return one entry per file_id with the same agent and prompt, changing only the file_id.
+1. Send the query as it is to the agent.
+2. Perform spell fix if necessary.
+3. If the user mentions any specific file/document name, return JSON for that particular file and ignore others.
+4. If multiple file_ids are provided and the query applies independently to each file (no cross-file comparison), return one entry per file_id with the same agent and prompt, changing only the file_id.
    Example:
    [
        {{ "agent": "agent_name", "prompt":"<query>", "file_id": ["id1"] }},

@@ -7,6 +7,10 @@ import threading
 import uuid
 
 from dotenv import load_dotenv
+from langchain_core.messages import AIMessage, trim_messages
+from langchain_core.messages.utils import count_tokens_approximately
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import MessagesState
 from langgraph.prebuilt import create_react_agent
 from dotenv import load_dotenv
 from datetime import datetime
@@ -15,6 +19,7 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from langchain_openai import AzureOpenAIEmbeddings
 from langchain_openai import AzureChatOpenAI
+from langchain_google_vertexai import ChatVertexAI
 from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from tools.fetch_consolidated import fetch_consolidated_data
@@ -27,11 +32,20 @@ from prompts import general_agent_prompt,common_prompt_func
 
 load_dotenv()
 
-model = AzureChatOpenAI(model="gpt-4o",
-                            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-                            api_version=os.getenv("AZURE_OPENAI_VERSION"),
-                            max_tokens=4000,temperature=0)
+model = AzureChatOpenAI(
+    model="gpt-4o",
+    # model="gpt-4.1",
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_version=os.getenv("AZURE_OPENAI_VERSION"),
+    # max_tokens=4000,
+    temperature=0,
+)
+
+# model =  ChatVertexAI(
+#     model="gemini-2.5-pro",
+#     temperature=0,
+# )
 
 def filter_messages(messages: list):
     # This is very simple helper function which uses around 5 last queries as context window
@@ -42,7 +56,20 @@ def _modify_state_messages(state: AgentState):
 
     return general_agent_prompt.invoke({"messages": messages})
 
-tools = [fetch_relevant_response, fetch_standalone_data, fetch_consolidated_data]
+# tools = [fetch_relevant_response, fetch_standalone_data, fetch_consolidated_data]
+tools = [fetch_relevant_response]
+
+def pre_model_hook(state: MessagesState):
+    trimmed_messages = trim_messages(
+        state['messages'],
+        strategy="last",
+        token_counter=count_tokens_approximately,
+        max_tokens=10000,
+        start_on="system",
+        end_on=("human", "tool"),
+    )
+    
+    return {"llm_input_messages": trimmed_messages}
 
 async def general_agents_stream(query: str, user_id: str, query_id: str, file_id_list : list, notes : str,timeout_: int = 55):
     try:
@@ -56,17 +83,20 @@ async def general_agents_stream(query: str, user_id: str, query_id: str, file_id
                     max_size=5,
                     kwargs=connection_kwargs,
                 ) as pool:
-            checkpointer = AsyncPostgresSaver(pool)
+            # checkpointer = AsyncPostgresSaver(pool)
+            checkpointer = InMemorySaver()
 
             # NOTE: you need to call .setup() the first time you're using your checkpointer
-            await checkpointer.setup()
+            # await checkpointer.setup()
             langgraph_agent_executor = create_react_agent(
-                                                        model, 
-                                                        tools,
-                                                        prompt=general_agent_prompt
-                                                        # state_modifier=_modify_state_messages
-                                                        )
-            config = {"configurable": {"user_id": user_id}}
+                model, 
+                tools,
+                prompt=general_agent_prompt,
+                pre_model_hook=pre_model_hook,
+                checkpointer=checkpointer,
+                # state_modifier=_modify_state_messages
+            )
+            config = {"configurable": {"user_id": user_id, "thread_id": "test"}}
             try:
                 query_id_prompt = f"""Use the following arguments for internal processing:  
                     - **query_id**: {query_id}  
@@ -88,7 +118,17 @@ async def general_agents_stream(query: str, user_id: str, query_id: str, file_id
                     
                 common_prompt = common_prompt_func()
                 
-                async for msg, metadata in langgraph_agent_executor.astream({"messages": [("system", query_id_prompt), ("human", query), ("system", common_prompt)]}, config, stream_mode="messages"):
+                async for msg, metadata in langgraph_agent_executor.astream(
+                    {
+                        "messages": [
+                            ("system", query_id_prompt),
+                            ("system", common_prompt),
+                            ("human", query),
+                        ]
+                    },
+                    config,
+                    stream_mode="messages",
+                ):
                     token_usage_data = getattr(msg, 'usage_metadata', {})
                     if msg.content:
                         content = getattr(msg, 'content', "")
@@ -97,9 +137,12 @@ async def general_agents_stream(query: str, user_id: str, query_id: str, file_id
                         id_ = getattr(msg, 'id', "")
                         tool_call_id = getattr(msg, 'tool_call_id', "")
 
-                        if content and not additional_kwargs and not response_metadata and id_ and not tool_call_id:
+                        # print(isinstance(msg, AIMessage))
+                        # print(msg.content)
+                        if (isinstance(msg, AIMessage)):
+                        # if content and not additional_kwargs and not response_metadata and id_ and not tool_call_id:
                             # if content and not logs.first_token_response_time:
-                                # logs.first_token_response_time = round((time.time() - start_time),3)
+                            #     logs.first_token_response_time = round((time.time() - start_time),3)
                             yield msg.content
 
                 #     if token_usage_data:
