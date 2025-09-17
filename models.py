@@ -103,8 +103,8 @@ async def append_tables_after_rag(target: UserS3Mapping):
         return results
  
 # @event.listens_for(UserS3Mapping, "after_delete")
-@event.listens_for(UserS3Mapping, "after_insert")
-@event.listens_for(UserS3Mapping, "after_update")
-def append_tables_after_rag_listener(mapper, connection, target: UserS3Mapping):
-    table = UserS3Mapping.__table__
-    asyncio.run(append_tables_after_rag(target))
+# @event.listens_for(UserS3Mapping, "after_insert")
+# @event.listens_for(UserS3Mapping, "after_update")
+# def append_tables_after_rag_listener(mapper, connection, target: UserS3Mapping):
+#     table = UserS3Mapping.__table__
+#     asyncio.run(append_tables_after_rag(target))
