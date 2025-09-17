@@ -19,7 +19,7 @@ def get_router_response(user_query: str, file_id_list, version ) -> str:
         
     else :
         agents_list = """
-- calculation_agent: Numerical computations, derived metrics, or any query explicitly asking for calculation. Use ONLY if calculation is explicitly required as in mentioned in the query to calculate.
+- calculation_agent: Use ONLY if the user explicitly asks to "calculate", "compute", "find the value of", or similar wording that clearly requires a numeric calculation. Do NOT infer or assume a calculation if it is not explicitly mentioned.
 - general_agent: General Q&A, recommendations, clarifications, or queries that do not clearly fall into other categories.
 """
     
