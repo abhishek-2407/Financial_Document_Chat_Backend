@@ -29,6 +29,7 @@ model = AzureChatOpenAI(model="gpt-4o",
                             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
                             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                             api_version=os.getenv("AZURE_OPENAI_VERSION"),
+                            temperature=0,
                             max_tokens=4000)
 
 collection_name = os.getenv("QDRANT_COLLECTION")
@@ -58,7 +59,7 @@ async def retrieve_chunks(
             file_id_list : List[str] = [], 
             top_k: int = 10, 
             page_list: List[int] = [] , 
-            statement_type : List[str] = [], 
+            statement_type : Optional[List[str]] = None, 
             is_financial_statement : str = None,
             notes : str = None,
             core_statements : str = None
@@ -163,22 +164,22 @@ async def retrieve_chunks(
         results = client.query_points(
             limit=top_k,
             collection_name=collection_name,
-            # query=next(colbert_embedding_model.query_embed(user_query)),
-            query=text_embedding_small_3.embed_query(user_query),
-            # using="colbert",
-            using="text-embedding-3-small",
-            # prefetch=[
-            #    qdrant_client.models.Prefetch(
-            #         query=text_embedding_small_3.embed_query(user_query),
-            #         using="text-embedding-3-small",
-            #         limit=20,
-            #     ),
-            #    qdrant_client.models.Prefetch(
-            #         query=qdrant_client.models.SparseVector(**next(bm25_embedding_model.query_embed(user_query)).as_object()),
-            #         using="bm25",
-            #         limit=20,
-            #     ),
-            # ],
+            query=next(colbert_embedding_model.query_embed(user_query)),
+            # query=text_embedding_small_3.embed_query(user_query),
+            using="colbert",
+            # using="text-embedding-3-small",
+            prefetch=[
+               qdrant_client.models.Prefetch(
+                    query=text_embedding_small_3.embed_query(user_query),
+                    using="text-embedding-3-small",
+                    limit=20,
+                ),
+               qdrant_client.models.Prefetch(
+                    query=qdrant_client.models.SparseVector(**next(bm25_embedding_model.query_embed(user_query)).as_object()),
+                    using="bm25",
+                    limit=20,
+                ),
+            ],
             query_filter=qdrant_client.models.Filter(
                 must=[
                    *filter_condition,
@@ -195,10 +196,13 @@ async def retrieve_chunks(
             with_payload=True,
         )
 
+        smaller_chunks = results.points
         pages_of_fetched_chunks = set(r.payload['metadata']['page_number'] for r in results.points)
+        logging.info(f"Initial pages fetched: {pages_of_fetched_chunks}")
         for i in results.points:
             pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] + 1)
             pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] - 1)
+        logging.info(f"Populates pages fetched: {list(pages_of_fetched_chunks)}")
 
 
         # from rich import print
@@ -225,15 +229,16 @@ async def retrieve_chunks(
                 ]
             ),
         )
-        
+
         response = {
             "status_code": 200,
             "message": "success",
             # "chunks": [result.payload for result in results.points],
+            # "chunks": smaller_chunks,
             "chunks": [result.payload for result in results],
             # "chunks": results,
         }
-        logging.info(f"Chunks response : {len(response)}")
+        logging.info(f"Returning {len(results)} chunks out of {len(pages_of_fetched_chunks)}")
         # logging.info(f"No of chunks retrieved: {len(results.points)}")
         return response
         

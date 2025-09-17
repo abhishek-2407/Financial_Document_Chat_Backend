@@ -1,4 +1,5 @@
 import os
+import uuid
 import openai
 import qdrant_client
 import asyncio
@@ -13,10 +14,12 @@ from dotenv import load_dotenv
 from typing import Optional, List, Dict, Any
 from langchain_openai import OpenAI, AzureOpenAIEmbeddings,AzureChatOpenAI
 from langchain_qdrant import QdrantVectorStore
+from langchain.schema.document import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from rich.progress import Progress
 from utils.postgres_connection import ConnectDB
 
 
@@ -58,12 +61,14 @@ def connect_qdrant():
 
 
 embeddings = AzureOpenAIEmbeddings(
-            model="text-embedding-3-small",
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_version=os.getenv("AZURE_OPENAI_VERSION"),
-            dimensions=1536,
-        )
+    model="text-embedding-3-small",
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_version=os.getenv("AZURE_OPENAI_VERSION"),
+    dimensions=1536,
+)
+bm25_embedding_model = qdrant_client.models.SparseTextEmbedding("Qdrant/bm25")
+colbert_embedding_model = qdrant_client.models.LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
 
 from typing import List
 import numpy as np
@@ -188,7 +193,7 @@ def check_and_create_collection(collection_name:str, size: int = 1536):
     )
     
 # RAG Utilities
-def create_rag(chunked_data: List[Dict[str, Any]], thread_id: str) -> Dict[str, str]:
+def create_rag(chunked_data: List[Document], thread_id: str) -> Dict[str, str]:
     """
     Creates a RAG (Retrieval-Augmented Generation) vector store with the chunked data in batches of 15.
 
@@ -205,17 +210,35 @@ def create_rag(chunked_data: List[Dict[str, Any]], thread_id: str) -> Dict[str, 
 
         logging.info(f"Starting to add documents to collection: {collection_name} in batches")
 
-        vectorstore = QdrantVectorStore(
-            client=client,
-            collection_name=collection_name,
-            embedding=embeddings,
-        )
+        points = []
+        with Progress() as progress:
+            task = progress.add_task("[cyan]Embedding and preparing points...", total=len(chunked_data))
+            for d in chunked_data:
+                text = d.page_content
 
-        # Process in batches of 15
-        batch_size = 30
-        for i in range(0, len(chunked_data), batch_size):
-            batch = chunked_data[i:i + batch_size]
-            vectorstore.add_documents(batch)
+                dense_vector = embeddings.embed_query(text)
+                sparse_vector = next(bm25_embedding_model.query_embed(text)).as_object()
+                colbert_vector = next(colbert_embedding_model.query_embed(text))
+                point = qdrant_client.models.PointStruct(
+                    id=d.metadata.get('doc_id', str(uuid.uuid4())),
+                    payload=d.model_dump(),
+                    vector={
+                        "text-embedding-3-small": dense_vector,
+                        "colbert": colbert_vector,
+                        "bm25": sparse_vector,
+                    },
+                )
+                points.append(point)
+                progress.advance(task)
+
+        # Process in batches of 10
+        batch_size = 10
+        for i in range(0, len(points), batch_size):
+            batch = points[i:i + batch_size]
+            client.upsert(
+                collection_name=collection_name,
+                points=batch,
+            )
             logging.info(f"Added batch {i//batch_size + 1} with {len(batch)} documents")
 
         logging.info(f"Vector store created for collection: {collection_name} and thread_id: {thread_id}")

@@ -629,6 +629,7 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
                         page_content=chunk,
                         metadata={
                             **img.metadata,
+                            "doc_id": str(uuid.uuid4()),
                             "type": "text",
                             "chunk_index": j,
                         }
