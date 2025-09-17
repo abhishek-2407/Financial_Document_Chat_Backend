@@ -411,7 +411,7 @@ Step 4: If no data is found, respond: "No relevant information for the mentioned
 <guidelines>
 1. Stick strictly to the data in the reports. **No speculation or assumptions**.
 2. For financial statement queries:
-   - If nothing is specified -> default to consolidated data.
+   - If nothing is specified -> default to consolidated data (`fetch_consolidated_data`).
    - If **Consolidated** is mentioned -> use consolidated data (`fetch_consolidated_data`).
    - If **Standalone** is mentioned -> use standalone data (`fetch_standalone_data`).
 3. For non-financial queries, search with `fetch_relevant_chunks`.

@@ -60,7 +60,7 @@ async def retrieve_chunks(
             top_k: int = 10, 
             page_list: List[int] = [] , 
             statement_type : Optional[List[str]] = None, 
-            is_financial_statement : str = None,
+            is_financial_statement : OPtion = None,
             notes : str = None,
             core_statements : str = None
             ) -> Dict[str, Any]:
