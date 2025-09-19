@@ -447,7 +447,7 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
             ]
             
             # MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-1.5-pro")
-            MEDIA_ANALYSIS_MODEL = "gemini-1.5-pro"
+            MEDIA_ANALYSIS_MODEL = "gemini-2.5-pro"
 
             response = google_genai_client.models.generate_content(
                 model=MEDIA_ANALYSIS_MODEL,
@@ -649,7 +649,7 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
                         }
                     )
                 )
-        logging.info("=== Text chunks: {}".format(len(text_chunks)))        
+        logging.info("=== Text chunks: {}".format(len(text_chunks)))
         summary_img.extend(text_chunks)
     except Exception as e:
         logging.info("Skipping text extraction")
