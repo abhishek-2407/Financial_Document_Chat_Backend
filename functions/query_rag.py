@@ -157,29 +157,29 @@ async def retrieve_chunks(
             api_version=os.getenv("AZURE_OPENAI_VERSION"),
             dimensions=1536,
         )
-        bm25_embedding_model = qdrant_client.models.SparseTextEmbedding("Qdrant/bm25")
-        colbert_embedding_model = qdrant_client.models.LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
+        # bm25_embedding_model = qdrant_client.models.SparseTextEmbedding("Qdrant/bm25")
+        # colbert_embedding_model = qdrant_client.models.LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
 
 
         results = client.query_points(
             limit=top_k,
             collection_name=collection_name,
-            query=next(colbert_embedding_model.query_embed(user_query)),
-            # query=text_embedding_small_3.embed_query(user_query),
-            using="colbert",
-            # using="text-embedding-3-small",
-            prefetch=[
-               qdrant_client.models.Prefetch(
-                    query=text_embedding_small_3.embed_query(user_query),
-                    using="text-embedding-3-small",
-                    limit=20,
-                ),
-               qdrant_client.models.Prefetch(
-                    query=qdrant_client.models.SparseVector(**next(bm25_embedding_model.query_embed(user_query)).as_object()),
-                    using="bm25",
-                    limit=20,
-                ),
-            ],
+            # query=next(colbert_embedding_model.query_embed(user_query)),
+            query=text_embedding_small_3.embed_query(user_query),
+            # using="colbert",
+            using="text-embedding-3-small",
+            # prefetch=[
+            #    qdrant_client.models.Prefetch(
+            #         query=text_embedding_small_3.embed_query(user_query),
+            #         using="text-embedding-3-small",
+            #         limit=20,
+            #     ),
+            #    qdrant_client.models.Prefetch(
+            #         query=qdrant_client.models.SparseVector(**next(bm25_embedding_model.query_embed(user_query)).as_object()),
+            #         using="bm25",
+            #         limit=20,
+            #     ),
+            # ],
             query_filter=qdrant_client.models.Filter(
                 must=[
                    *filter_condition,
@@ -197,8 +197,10 @@ async def retrieve_chunks(
         )
 
         smaller_chunks = results.points
+        logging.info(f"Smaller chunks: {len(smaller_chunks)}")
         pages_of_fetched_chunks = set(r.payload['metadata']['page_number'] for r in results.points)
-        # logging.info(f"Initial pages fetched: {pages_of_fetched_chunks}")
+        logging.info(f"Initial pages fetched: {pages_of_fetched_chunks}")
+        # logging.info(f"Initial pages fetched: {type(list(pages_of_fetched_chunks)[0])}")
         # for i in results.points:
         #     pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] + 1)
         #     pages_of_fetched_chunks.add(i.payload['metadata']['page_number'] - 1)

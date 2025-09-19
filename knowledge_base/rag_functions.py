@@ -42,8 +42,8 @@ def connect_qdrant():
     try:
         client = qdrant_client.QdrantClient(
             url=os.getenv("QDRANT_URL"),
-            api_key=os.getenv("QDRANT_API_KEY")
-        
+            api_key=os.getenv("QDRANT_API_KEY"),
+            timeout=1200,
         )
         
         collections = client.get_collections()
@@ -206,7 +206,7 @@ def create_rag(chunked_data: List[Document], thread_id: str) -> Dict[str, str]:
     """
     try:
         client = connect_qdrant()
-        client.update_collection(collection_name=collection_name, timeout=120)
+        client.update_collection(collection_name=collection_name, timeout=1200)
 
         logging.info(f"Starting to add documents to collection: {collection_name} in batches")
 
@@ -217,22 +217,22 @@ def create_rag(chunked_data: List[Document], thread_id: str) -> Dict[str, str]:
                 text = d.page_content
 
                 dense_vector = embeddings.embed_query(text)
-                sparse_vector = next(bm25_embedding_model.query_embed(text)).as_object()
-                colbert_vector = next(colbert_embedding_model.query_embed(text))
+                # sparse_vector = next(bm25_embedding_model.query_embed(text)).as_object()
+                # colbert_vector = next(colbert_embedding_model.query_embed(text))
                 point = qdrant_client.models.PointStruct(
                     id=d.metadata.get('doc_id', str(uuid.uuid4())),
                     payload=d.model_dump(),
                     vector={
                         "text-embedding-3-small": dense_vector,
-                        "colbert": colbert_vector,
-                        "bm25": sparse_vector,
+                        # "colbert": colbert_vector,
+                        # "bm25": sparse_vector,
                     },
                 )
                 points.append(point)
                 progress.advance(task)
 
         # Process in batches of 10
-        batch_size = 10
+        batch_size = 25
         for i in range(0, len(points), batch_size):
             batch = points[i:i + batch_size]
             client.upsert(
@@ -271,11 +271,11 @@ async def retrieve_chunks(query: str, thread_id : str ,file_id_list : List[str],
         
         logging.info(f"top k : {top_k} and page_list : {page_list}")
         client = connect_qdrant()
-        vectorstore = QdrantVectorStore(
-            client=client,
-            collection_name=collection_name,
-            embedding=embeddings,
-        )
+        # vectorstore = QdrantVectorStore(
+        #     client=client,
+        #     collection_name=collection_name,
+        #     embedding=embeddings,
+        # )
         
         filter_condition = [
                     qdrant_client.models.FieldCondition(
@@ -308,34 +308,36 @@ async def retrieve_chunks(query: str, thread_id : str ,file_id_list : List[str],
         #         must=filter_condition,
         #     ),
         # )
-        text_embedding_small_3 = AzureOpenAIEmbeddings(
-            model="text-embedding-3-small",
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_version=os.getenv("AZURE_OPENAI_VERSION"),
-            dimensions=1536,
-        )
-        bm25_embedding_model = qdrant_client.models.SparseTextEmbedding("Qdrant/bm25")
+
+        # text_embedding_small_3 = AzureOpenAIEmbeddings(
+        #     model="text-embedding-3-small",
+        #     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        #     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        #     api_version=os.getenv("AZURE_OPENAI_VERSION"),
+        #     dimensions=1536,
+        # )
+        # bm25_embedding_model = qdrant_client.models.SparseTextEmbedding("Qdrant/bm25")
         colbert_embedding_model = qdrant_client.models.LateInteractionTextEmbedding("colbert-ir/colbertv2.0")
 
 
         results, _ = client.query_points(
-            limit=5,
+            limit=top_k,
             collection_name=collection_name,
             query=next(colbert_embedding_model.query_embed(query)),
-            using="colbert",
-            prefetch=[
-               qdrant_client.models.Prefetch(
-                    query=text_embedding_small_3.embed_query(query),
-                    using="text-embedding-3-small",
-                    limit=20,
-                ),
-               qdrant_client.models.Prefetch(
-                    query=qdrant_client.models.SparseVector(**next(bm25_embedding_model.query_embed(query)).as_object()),
-                    using="bm25",
-                    limit=20,
-                ),
-            ],
+            # using="colbert",
+            using="text-embedding-3-small",
+            # prefetch=[
+            #    qdrant_client.models.Prefetch(
+            #         query=text_embedding_small_3.embed_query(query),
+            #         using="text-embedding-3-small",
+            #         limit=20,
+            #     ),
+            #    qdrant_client.models.Prefetch(
+            #         query=qdrant_client.models.SparseVector(**next(bm25_embedding_model.query_embed(query)).as_object()),
+            #         using="bm25",
+            #         limit=20,
+            #     ),
+            # ],
             query_filter=qdrant_client.models.Filter(
                 must=[
                    *filter_condition,
@@ -343,10 +345,10 @@ async def retrieve_chunks(query: str, thread_id : str ,file_id_list : List[str],
                         key="metadata.file_id",
                         match=qdrant_client.models.MatchAny(any=file_id_list),
                     ),
-                    #qdrant_client.models.FieldCondition(
-                    #     key="metadata.page_number",
-                    #     match=qdrant_client.models.MatchAny(any=[324]),
-                    # ),
+                    qdrant_client.models.FieldCondition(
+                        key="metadata.page_number",
+                        match=qdrant_client.models.MatchAny(any=page_list),
+                    ),
                    qdrant_client.models.FieldCondition(
                         key="metadata.type",
                         match=qdrant_client.models.MatchValue(value="text"),
