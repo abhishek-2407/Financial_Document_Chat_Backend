@@ -21,6 +21,7 @@ from tools.fetch_consolidated import fetch_consolidated_data
 from tools.fetch_standalone import fetch_standalone_data
 from tools.query_rag import fetch_relevant_response
 from tools.db_tool import execute_sql, list_particulars
+from tools.fetch_notes import get_notes
 
 
 from prompts import general_agent_prompt,common_prompt_func, common_prompt_func_1
@@ -43,7 +44,7 @@ def filter_messages(messages: list):
 
 #     return general_agent_prompt.invoke({"messages": messages})
 
-tools = [execute_sql, list_particulars]
+tools = [execute_sql, list_particulars, get_notes]
 
 async def db_agent_stream(query: str, user_id: str, query_id: str, file_id_list : list, notes : str,timeout_: int = 55):
     try:
@@ -66,9 +67,10 @@ async def db_agent_stream(query: str, user_id: str, query_id: str, file_id_list 
         Priority Framework :
         1. Always use 'list_particulars' First tools to get the names of variables available in DB.
         2. Use 'list_particulars' tool to find the location with in the table.
-        2. Pick the variable required to solve the problem statement provided by user.
-        3. Generate a sql query to fetch the values of the vsriable you select.
-        4. Provide the response to user.
+        3. Pick the variable required to solve the problem statement provided by user.
+        4. Generate a sql query to fetch the values of the variable you select.
+        5. If User asked from notes section then fetch the required note number from DB and pass it to 'get_notes' tool.
+        6. Provide the response to user.
 
 
         The postgres table you have to retrive from has the following schema

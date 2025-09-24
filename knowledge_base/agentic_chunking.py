@@ -31,7 +31,7 @@ from utils.llm_calling import google_genai_client
 
 from pdf2image import convert_from_bytes
 # from IPython.display import Image, display
-from knowledge_base.vision_prompt import vision_prompt_template_v2
+from knowledge_base.vision_prompt import vision_prompt_template_v3,vision_prompt_template_v4
 
 
 load_dotenv()
@@ -237,7 +237,7 @@ def get_advance_chunk(base64_str: str, file_name: str, thread_id: str, file_id: 
                 (
                     "user",
                     [
-                        {"type": "text", "text": vision_prompt_template_v2},
+                        {"type": "text", "text": vision_prompt_template_v3},
                         {
                             "type": "image_url",
                             "image_url": {"url": f"data:image/jpeg;base64,{image}"},
@@ -364,21 +364,36 @@ def get_advance_chunk_gemini(base64_str: str, file_name: str, thread_id: str, fi
 
     class ChunkMetadataStructure(BaseModel):
         headings: str = Field(
-            description="""
-Fetch the complete main heading of the page content.
-Mention the multiple heading if exists.
-Mention the main heading in one line only, Do not keep it in single word.
+    description="""
+Extract the most relevant heading(s) that describe the financial content of the page.
+Ignore company names, cover titles, or branding (e.g., "TATA STEEL").
+Always prefer section-specific headings such as:
+- Notes
+- Balance Sheet
+- Statement of Profit and Loss
+- Statement of Cash Flows
+- Notes forming part of the financial statements
+- Any headings which can define the page best.
 
+Must take care of notes section, mention 'Notes' words properly if mentioned on the headings of the page content.
+
+If multiple valid headings exist, return all of them as they appear.
+Fetch the heading exactly as written in the page.
 """
-        )
+)
         
         sub_headings: str = Field(
             description="""
-Fetch the complete sub-heading of the page content.
-Mention the multiple sub-heading if exists.
-Mention the sub-heading in short only.
+** Extract all sub-headings from the text. 
+** Capture the headings of the sections or tables.(Priority)
+Only Capture the sub-heading of the section from the page. Do not include any line items of the tables.(Priority)
+Always mention the Numbering mentioned with the sub-heading in the document.
+Examples of such sub-headings are '2B. Any information' and '2C. Mentioned information'.
+Keep it in short and precise.
 
+DO NOT Refer to #, ##, ### inside any table content as heading.
 """
+
         )
         
         is_financial_statement: Literal["Yes", "No"] = Field(
@@ -406,7 +421,7 @@ such as:
                 "'none' if not a financial statement."
             )
         )
-        statement_type_reasoning: str = Field(description="Explain why you categorized the statement_type as you did")
+        # statement_type_reasoning: str = Field(description="Explain why you categorized the statement_type as you did")
         notes: Literal["Yes", "No"] = Field(
             description="""
 Mark "Yes" ONLY if the FIRST heading (H1–H3, '#', '##', '###') inside or outside the <page> tags explicitly names a Notes section, e.g.:
@@ -439,46 +454,72 @@ Return "No" if the page only contains:
     def process_single_image(image_data: Tuple[int, bytes]) -> Tuple[int, str]:
         """Process a single image and return its index and summary"""
         idx, image = image_data
+        
+        from functions.split_pages import split_base64_png
+        
         try:
-            messages =  [
-                Part.from_bytes(
-                    data=image,  # Raw bytes, not base64
-                    mime_type="image/jpeg",
-                ),
-                vision_prompt_template_v2,
-            ]
             
-            # MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-1.5-pro")
-            MEDIA_ANALYSIS_MODEL = "gemini-1.5-pro"
+            if not image:
+                raise ValueError("Empty image data")    
+            
+            split_pages = split_base64_png(image)
+            pages_status = split_pages["status"]
+            pages_message = split_pages["message"]
+            page_length = len(split_pages["images"])
+            logging.info(f"Splitting page {idx + 1}: {pages_status}, {pages_message}, {page_length}")
+                
+            all_responses = []
+            
+            for page_b64 in split_pages["images"]:
+                
+                image_bytes = base64.b64decode(page_b64)
+                if len(image_bytes) == 0:
+                    raise ValueError("Invalid image bytes")
+                
+                messages =  [
+                    Part.from_bytes(
+                        data=image_bytes,  # Raw bytes, not base64
+                        mime_type="image/png",
+                    ),
+                    vision_prompt_template_v4,
+                ]
+                
+                # MEDIA_ANALYSIS_MODEL = os.getenv("GOOGLE_VISION_MODEL", "gemini-1.5-pro")
+                MEDIA_ANALYSIS_MODEL = "gemini-2.5-pro"
 
-            response = google_genai_client.models.generate_content(
-                model=MEDIA_ANALYSIS_MODEL,
-                contents=messages,
-                config=GenerateContentConfig(
-                    temperature=0.3,
-                    top_p=1.0,
-                    top_k=1,
-                    candidate_count=1,
-                    max_output_tokens=8192,
-                    # thinking_config=ThinkingConfig(
-                    #     thinking_budget=0,
-                    # ),
-                    # max_output_tokens=8192, # if output is too long try with this
-                    
-                ),
-            )
+                response = google_genai_client.models.generate_content(
+                    model=MEDIA_ANALYSIS_MODEL,
+                    contents=messages,
+                    config=GenerateContentConfig(
+                        temperature=0.4,
+                        top_p=1.0,
+                        top_k=1,
+                        candidate_count=1,
+                        # thinking_config=ThinkingConfig(
+                        #     thinking_budget=0,
+                        # ),
+                        # max_output_tokens=8192, # if output is too long try with this
+                        
+                    ),
+                )
+                
+                all_responses.append(response.text.strip())
+
 
             result = {
-                "page_data": response.text,
+                "page_data": "\n".join(all_responses),
             }
 
             json_model = google_genai_client.models.generate_content(
-                model="gemini-2.5-flash-lite",
-                contents=response.text,
+                model="gemini-2.5-flash",
+                contents=result["page_data"],
                 config=GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=ChunkMetadataStructure,
-                    temperature=0,
+                    temperature=0.0,
+                    top_p=1.0,
+                    top_k=1,
+                    candidate_count=1,
                     thinking_config=ThinkingConfig(
                         thinking_budget=0,
                     ),
@@ -513,10 +554,6 @@ Return "No" if the page only contains:
                 **result,
                 **(json_model_output.model_dump() if json_model_output else {})
             }
-
-            # prompt = ChatPromptTemplate.from_messages(messages)
-            # chain = prompt | model | StrOutputParser()
-            # summary = chain.invoke({})
             
             logging.info(f"Successfully processed image {idx+1}/{len(images)}")
             return idx, result, final_meta_json
@@ -524,9 +561,8 @@ Return "No" if the page only contains:
         except Exception as e:
             error_msg = f"Error processing image {idx+1}: {str(e)}"
             logging.error(error_msg)
-            # Return error message as the summary for this image
-            return idx, f"Error processing this image: {str(e)}"
-    
+            return idx, {"page_data": f"Error processing this page: {str(e)}", "error": True}, {}
+        
     image_summaries = [None] * len(images) 
     document_content_page = [None] * len(images) 
     
@@ -563,7 +599,7 @@ Return "No" if the page only contains:
                 
                 image_summaries[idx] = summary 
                 document_content_page[idx] = final_meta_data 
-                
+                    
             except Exception as e:
                 img_data = future_to_image[future]
                 idx = img_data[0]
@@ -587,10 +623,10 @@ Return "No" if the page only contains:
                  ) for i, summary in enumerate(image_summaries)
     ]
     
-    logging.info(f'meta data : {document_content_page}')
+    # logging.info(f'meta data : {document_content_page}')
     
     
-    simplified_list = [ {"heading": item["headings"], "subheading": item["sub_headings"], "page_number": idx + 1}
+    simplified_list = [ {"heading": item["headings"], "subheading": item["sub_headings"], "page_number": idx + 1,"statement_type" : item["statement_type"], "notes" : item["notes"]}
                     for idx, item in enumerate(document_content_page)]
     
     extracted_doc_content_page = [
